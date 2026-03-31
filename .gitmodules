@@ -1,0 +1,3 @@
+[submodule "native-tauri-surface"]
+	path = native-tauri-surface
+	url = git@github.com:cgtinker/native-tauri-surface.git

@@ -1,0 +1,44 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ui:dev",
+            "type": "shell",
+            "isBackground": true,
+            // change this to your `beforeBuildCommand`
+            "command": "pnpm",
+            "args": [
+                "dev"
+            ],
+        },
+        {
+            "label": "ui:build",
+            "type": "shell",
+            // change this to your `beforeDevCommand`
+            "command": "pnpm",
+            "args": [
+                "build"
+            ]
+        },
+        {
+            "label": "core:buildDebug",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--manifest-path=./src-tauri/Cargo.toml",
+                "--no-default-features"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ],
+        },
+        {
+            "label": "ui:dev&core:buildDebug",
+            "dependsOn": [
+                "core:buildDebug",
+                "ui:dev"
+            ]
+        }
+    ]
+}

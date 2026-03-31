@@ -1,0 +1,64 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Tauri Core Development",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--manifest-path=./src-tauri/Cargo.toml",
+                    "--no-default-features"
+                ]
+            },
+            // task for the `beforeDevCommand` if used, must be configured in `.vscode/tasks.json`
+            "preLaunchTask": "ui:dev"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Tauri Core Production",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--release",
+                    "--manifest-path=./src-tauri/Cargo.toml"
+                ]
+            },
+            // task for the `beforeBuildCommand` if used, must be configured in `.vscode/tasks.json`
+            "preLaunchTask": "ui:build"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Tauri App (No Rebuild)",
+            "program": "${workspaceFolder}/src-tauri/target/debug/app",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "ui:dev&core:buildDebug",
+            "windows": {
+                "program": "${workspaceFolder}/src-tauri/target/debug/app.exe"
+            },
+            "osx": {
+                "program": "${workspaceFolder}/src-tauri/target/debug/app.app/Contents/MacOS/app"
+            }
+        },
+        {
+            // this configuration works only on Windows
+            "name": "Tauri Frontend (Windows)",
+            "type": "msedge",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/src-tauri/target/debug/app.exe", // Path to your app in debug mode
+            "useWebView": true,
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "ui:dev&core:buildDebug"
+        },
+        {
+            "name": "Frontend (Chrome)",
+            "type": "pwa-chrome",
+            "request": "attach",
+            "url": "http://localhost:1420",
+            "webRoot": "${workspaceFolder}"
+        }
+    ],
+}

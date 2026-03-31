@@ -1,0 +1,16 @@
+[package]
+name = "wgpu-renderer"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wgpu = "29"
+native_tauri_surface = { path = "../native-tauri-surface" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.116"
+wasm-bindgen-futures = "0.4.66"
+web-sys = { version = "0.3.93", features = ["Window"] }
