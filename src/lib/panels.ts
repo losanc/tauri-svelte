@@ -13,6 +13,13 @@ interface GpuSurface {
 class TauriSurface implements GpuSurface {
   private rendering = false;
 
+  private constructor() {}
+
+  static async create(): Promise<TauriSurface> {
+    await invoke('init_surface');
+    return new TauriSurface();
+  }
+
   setRect(x: number, y: number, width: number, height: number) {
     invoke('set_surface_rect', { x, y, width, height });
   }
@@ -23,7 +30,9 @@ class TauriSurface implements GpuSurface {
     invoke('render_surface').finally(() => { this.rendering = false; });
   }
 
-  dispose() {}
+  dispose() {
+    invoke('set_surface_rect', { x: 0, y: 0, width: 0, height: 0 });
+  }
 }
 
 class WasmSurface implements GpuSurface {
@@ -61,7 +70,7 @@ export class WgpuPanel {
 
   async init(_params: GroupPanelPartInitParameters) {
     if (isTauri) {
-      this.surface = new TauriSurface();
+      this.surface = await TauriSurface.create();
     } else {
       const canvas = document.createElement('canvas');
       canvas.style.cssText = 'width:100%;height:100%;display:block;';
@@ -77,7 +86,9 @@ export class WgpuPanel {
         lastRect = { x: r.x, y: top, w: r.width, h: r.height };
         this.surface!.setRect(r.x, top, r.width, r.height);
       }
-      this.surface!.render();
+      if (r.width > 0 && r.height > 0) {
+        this.surface!.render();
+      }
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);

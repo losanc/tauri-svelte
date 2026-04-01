@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createDockview } from 'dockview-core';
-  import { SimplePanel } from '$lib/panels';
+  import { SimplePanel, WgpuPanel } from '$lib/panels';
   import { setupCrossWindowDnd } from '$lib/crossWindowDnd';
   import '@fontsource-variable/inter';
   import 'dockview-core/dist/styles/dockview.css';
@@ -26,6 +26,7 @@
     const api = createDockview(container, {
       createComponent({ name }) {
         if (name === 'simple') return new SimplePanel();
+        if (name === 'wgpu') return new WgpuPanel();
         throw new Error(`Unknown component: ${name}`);
       },
     });

@@ -54,7 +54,7 @@ export function setupCrossWindowDnd(api: DockviewApi): () => void {
     if (!event.nativeEvent.dataTransfer) return;
     const payload: PanelPayload = {
       id: event.panel.id,
-      component: 'simple',
+      component: event.panel.toJSON().contentComponent ?? 'simple',
       title: event.panel.title,
       params: (event.panel.params as Record<string, unknown>) ?? {},
       sourceLabel: myLabel,
