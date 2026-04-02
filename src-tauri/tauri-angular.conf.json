@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.tauri-svelte.app",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm --dir src-frontend/src-angular run start -- --port 1420",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../src-frontend/src-svelte/build"
+    "beforeBuildCommand": "pnpm build:angular",
+    "frontendDist": "../src-frontend/src-angular/dist/browser"
   },
   "app": {
     "windows": [],
