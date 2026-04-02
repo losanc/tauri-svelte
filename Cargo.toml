@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "src-tauri",
+    "src-backend/wgpu-renderer",
+    "src-backend/native-tauri-surface",
+]
+resolver = "2"

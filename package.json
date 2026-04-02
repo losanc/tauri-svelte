@@ -4,12 +4,12 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build:wasm": "wasm-pack build wgpu-renderer --target web --out-dir ../src/lib/wasm_gpu",
-    "dev": "vite dev",
-    "build": "pnpm build:wasm && vite build",
-    "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "build:wasm": "wasm-pack build src-backend/wgpu-renderer --target web --out-dir ../../src-frontend/src/lib/wasm_gpu",
+    "dev": "cd src-frontend && vite dev",
+    "build": "pnpm build:wasm && cd src-frontend && vite build",
+    "preview": "cd src-frontend && vite preview",
+    "check": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri"
   },
   "license": "MIT",
