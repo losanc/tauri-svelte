@@ -1,10 +1,10 @@
+use native_tauri_surface::surface_helper::native::SurfaceHelper;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use native_tauri_surface::{SurfaceResizer, surface_helper::native::SurfaceHelper};
-use wgpu_renderer::Renderer;
 use tauri::Manager;
+use wgpu_renderer::Renderer;
 
-type SurfaceMap = Arc<Mutex<HashMap<String, (Renderer, SurfaceResizer)>>>;
+type SurfaceMap = Arc<Mutex<HashMap<String, Arc<Renderer>>>>;
 
 /// Create a native wgpu surface for the calling window.
 /// Idempotent — safe to call even if the surface already exists.
@@ -20,9 +20,9 @@ fn init_surface(
     }
     let map = Arc::clone(&surfaces);
     app.run_on_main_thread(move || {
-        let (tauri_surface, resizer) = SurfaceHelper::new(&window, 1, 1, 0, 0);
-        let renderer = pollster::block_on(Renderer::new(tauri_surface));
-        map.lock().unwrap().insert(label, (renderer, resizer));
+        let tauri_surface = SurfaceHelper::new(&window, 1, 1, 0, 0);
+        let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
+        map.lock().unwrap().insert(label, renderer);
     })
     .map_err(|e| format!("{e:?}"))
 }
@@ -37,46 +37,43 @@ fn set_surface_rect(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
-    let (resizer, frame) = {
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let inner_size = window.inner_size().map_err(|e| e.to_string())?;
+    let window_height = inner_size.height as f64 / scale;
+
+    let renderer = {
         let map = surfaces.lock().unwrap();
-        let (renderer, resizer) =
-            map.get(window.label()).ok_or("surface not initialized")?;
-
-        // ✅ clone the NSView safely
-        let resizer = SurfaceResizer {
-            ns_view: resizer.ns_view.clone(),
-        };
-
-        if width <= 0.0 || height <= 0.0 {
-            return app
-                .run_on_main_thread(move || unsafe {
-                    resizer.hide();
-                })
-                .map_err(|e| format!("{e:?}"));
-        }
-
-        let scale = window.scale_factor().map_err(|e| e.to_string())?;
-        let inner_size = window.inner_size().map_err(|e| e.to_string())?;
-        let window_height = inner_size.height as f64 / scale;
-
-        renderer.resize((width * scale) as u32, (height * scale) as u32);
-
-        (resizer, (x, y, width, height, window_height))
+        map.get(window.label())
+            .map(Arc::clone)
+            .ok_or("surface not initialized")?
     };
 
+    // Resizer is a lightweight clone of the Retained handles — obtained outside the lock.
+    let resizer = renderer.resizer();
+
+    if width <= 0.0 || height <= 0.0 {
+        return app
+            .run_on_main_thread(move || unsafe { resizer.hide() })
+            .map_err(|e| format!("{e:?}"));
+    }
+
+    // GPU resize outside the lock — surface reconfigure must not block other commands.
+    renderer.resize((width * scale) as u32, (height * scale) as u32);
+
     app.run_on_main_thread(move || unsafe {
-        let (x, y, w, h, wh) = frame;
-        resizer.update_frame(x, y, w, h, wh);
+        resizer.update_frame(x, y, width, height, window_height);
     })
     .map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
 fn render_surface(window: tauri::WebviewWindow, surfaces: tauri::State<'_, SurfaceMap>) {
-    if let Ok(map) = surfaces.lock() {
-        if let Some((renderer, _)) = map.get(window.label()) {
-            renderer.render();
-        }
+    let renderer = surfaces
+        .lock()
+        .ok()
+        .and_then(|map| map.get(window.label()).map(Arc::clone));
+    if let Some(renderer) = renderer {
+        renderer.render();
     }
 }
 

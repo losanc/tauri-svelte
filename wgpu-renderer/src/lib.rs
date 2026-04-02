@@ -1,5 +1,5 @@
+use native_tauri_surface::{GpuContext, SurfaceSource};
 use std::borrow::Cow;
-use native_tauri_surface::{GpuContext, surface_helper::WgpuCompatibleSurface};
 use wgpu::RenderPipeline;
 
 const SHADER: &str = r#"
@@ -22,34 +22,48 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(surface: impl WgpuCompatibleSurface) -> Self {
-        let ctx = GpuContext::init_wgpu(surface).await;
-        let shader = ctx.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(SHADER)),
-        });
-        let pipeline = ctx.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
-            layout: None,
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(ctx.format.into())],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
+    pub async fn new(source: impl SurfaceSource) -> Self {
+        let ctx = GpuContext::init_wgpu(source).await;
+        let shader = ctx
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(SHADER)),
+            });
+        let pipeline = ctx
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: None,
+                layout: None,
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(ctx.format.into())],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
         Self { ctx, pipeline }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resizer(&self) -> native_tauri_surface::SurfaceResizer {
+        self.ctx.resizer()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn canvas(&self) -> &wgpu::web_sys::HtmlCanvasElement {
+        self.ctx.canvas()
     }
 
     pub fn resize(&self, width: u32, height: u32) {
@@ -57,7 +71,7 @@ impl Renderer {
     }
 
     pub fn render(&self) {
-        match self.ctx.surface.get_current_texture() {
+        match self.ctx.surface().get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(st) => {
                 let view = st.texture.create_view(&Default::default());
                 let mut enc = self.ctx.device.create_command_encoder(&Default::default());
@@ -84,39 +98,48 @@ impl Renderer {
                 self.ctx.queue.submit(Some(enc.finish()));
                 st.present();
             }
-            _ => {}
+            wgpu::CurrentSurfaceTexture::Suboptimal(st) => {
+                st.present();
+                native_tauri_surface::my_print!("wgpu: surface suboptimal, resize pending");
+            }
+            wgpu::CurrentSurfaceTexture::Timeout => {
+                native_tauri_surface::my_print!(
+                    "wgpu: get_current_texture timed out, skipping frame"
+                );
+            }
+            wgpu::CurrentSurfaceTexture::Occluded => {}
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                native_tauri_surface::my_print!("wgpu: surface outdated, reconfigure needed");
+            }
+            wgpu::CurrentSurfaceTexture::Lost => {
+                native_tauri_surface::my_print!("wgpu: surface lost, recreate needed");
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                native_tauri_surface::my_print!("wgpu: surface validation error");
+            }
         }
     }
 }
 
-/// Shared surface interface, mirroring the TypeScript `GpuSurface`.
-/// - Native (Tauri): implemented by the `set_surface_rect` / `render_surface` commands.
-/// - WASM: implemented by `WasmRenderer`.
-pub trait GpuSurface {
-    /// CSS-pixel rect. x/y are screen position (ignored by WASM); width/height drive resize.
-    fn set_rect(&self, x: f64, y: f64, width: f64, height: f64);
-    fn render(&self);
-}
-
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen_futures::spawn_local;
-    use wgpu::web_sys::HtmlCanvasElement;
+    use super::Renderer;
+    use native_tauri_surface::GpuSurface;
     use std::rc::Rc;
-    use super::{GpuSurface, Renderer};
+    use wasm_bindgen::prelude::*;
+    use wgpu::web_sys::HtmlCanvasElement;
 
     #[wasm_bindgen]
     pub struct WasmRenderer {
         inner: Rc<Renderer>,
-        canvas: HtmlCanvasElement,
     }
 
     #[wasm_bindgen]
     impl WasmRenderer {
         pub async fn create(canvas: HtmlCanvasElement) -> WasmRenderer {
-            let renderer = Renderer::new(canvas.clone()).await;
-            WasmRenderer { inner: Rc::new(renderer), canvas }
+            WasmRenderer {
+                inner: Rc::new(Renderer::new(canvas).await),
+            }
         }
 
         pub fn set_rect(&self, x: f64, y: f64, width: f64, height: f64) {
@@ -124,19 +147,21 @@ mod wasm {
         }
 
         pub fn render(&self) {
-            let r = Rc::clone(&self.inner);
-            spawn_local(async move { r.render() });
+            GpuSurface::render(self);
         }
     }
 
     impl GpuSurface for WasmRenderer {
         fn set_rect(&self, _x: f64, _y: f64, width: f64, height: f64) {
-            let dpr = web_sys::window().map(|w| w.device_pixel_ratio()).unwrap_or(1.0);
+            let canvas = self.inner.canvas();
+            let dpr = web_sys::window()
+                .map(|w| w.device_pixel_ratio())
+                .unwrap_or(1.0);
             let w = (width * dpr) as u32;
             let h = (height * dpr) as u32;
-            if self.canvas.width() != w || self.canvas.height() != h {
-                self.canvas.set_width(w);
-                self.canvas.set_height(h);
+            if canvas.width() != w || canvas.height() != h {
+                canvas.set_width(w);
+                canvas.set_height(h);
                 self.inner.resize(w, h);
             }
         }
