@@ -80,3 +80,34 @@
     display: none;
   }
 }
+
+/* ── Layout reset ─────────────────────────────── */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Dockview dark theme ──────────────────────── */
+.dv-dockview {
+  background: #0f0f0f;
+  --dv-group-view-background-color: transparent;
+}
+
+.dv-tab {
+  background: #1e1e2e;
+  color: #94a3b8;
+  border-right: 1px solid #2a2a3a;
+}
+
+.dv-tab.dv-active-tab {
+  background: #2a2a3a;
+  color: #f1f5f9;
+  border-bottom: 2px solid #6366f1;
+}
+
+.dv-tabs-container {
+  background: #1e1e2e;
+}

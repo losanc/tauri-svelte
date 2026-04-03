@@ -1,0 +1,13 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0f0f0f;
+  color: #f1f5f9;
+  font-family: sans-serif;
+}
+
+.app-dock-container {
+  flex: 1;
+  overflow: hidden;
+}

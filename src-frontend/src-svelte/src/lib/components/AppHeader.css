@@ -1,0 +1,36 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  height: 40px;
+  background: #1e1e2e;
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+}
+
+.app-header-brand {
+  font-weight: 600;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.app-header-dropped {
+  font-size: 0.75rem;
+  color: #10b981;
+  opacity: 0.9;
+}
+
+.app-header-btn {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.app-header-btn:hover {
+  background: #4f46e5;
+}
