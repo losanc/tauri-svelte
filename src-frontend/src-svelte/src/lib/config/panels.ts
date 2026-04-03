@@ -10,6 +10,12 @@ export const initialPanels: PanelDescriptor[] = [
     params: { title: 'Explorer', color: '#10b981', description: 'File tree goes here' },
   },
   {
+    id: 'filebrowser',
+    component: 'filebrowser',
+    title: 'Files',
+    position: { referencePanel: 'explorer', direction: 'within' },
+  },
+  {
     id: 'editor',
     component: 'simple',
     title: 'Editor',

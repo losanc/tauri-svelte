@@ -5,6 +5,7 @@
   import { initialPanels, PANEL_COLORS } from '$lib/config/panels';
   import { useFileDrop } from '$lib/hooks/useFileDrop.svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
+  import { FileBrowserPanel } from '$lib/components/filebrowser/FileBrowserPanel';
   import './page.css';
   import 'dockview-core/dist/styles/dockview.css';
 
@@ -16,9 +17,10 @@
     handle = initDockview(container, {
       createComponent({ name }) {
         switch (name) {
-          case 'simple': return new SimplePanel();
-          case 'wgpu':   return new WgpuPanel();
-          default:       throw new Error(`Unknown component: ${name}`);
+          case 'simple':      return new SimplePanel();
+          case 'wgpu':        return new WgpuPanel();
+          case 'filebrowser': return new FileBrowserPanel();
+          default:            throw new Error(`Unknown component: ${name}`);
         }
       },
       initialPanels,

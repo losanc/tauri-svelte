@@ -3,5 +3,6 @@ members = [
     "src-tauri",
     "src-backend/wgpu-renderer",
     "src-backend/native-tauri-surface",
+    "src-backend/utils_api",
 ]
 resolver = "2"

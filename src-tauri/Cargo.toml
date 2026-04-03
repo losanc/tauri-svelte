@@ -25,4 +25,5 @@ serde_json = "1"
 
 native_tauri_surface = { path = "../src-backend/native-tauri-surface" }
 wgpu-renderer = { path = "../src-backend/wgpu-renderer" }
+utils_api = { path = "../src-backend/utils_api" }
 pollster = "*"

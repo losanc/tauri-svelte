@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use wgpu_renderer::Renderer;
+use utils_api::fs;
 
 type SurfaceMap = Arc<Mutex<HashMap<String, Arc<Renderer>>>>;
 
@@ -124,6 +125,16 @@ fn create_popout_window(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn list_directory(path: String) -> Result<Vec<fs::DirEntry>, String> {
+    fs::list_dirs(&path)
+}
+
+#[tauri::command]
+fn get_home_dir() -> Result<String, String> {
+    fs::get_home()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -152,6 +163,8 @@ pub fn run() {
             set_surface_rect,
             push_resize_cursor,
             pop_resize_cursor,
+            list_directory,
+            get_home_dir,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
