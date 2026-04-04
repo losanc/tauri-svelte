@@ -5,6 +5,12 @@ use objc2_app_kit::NSView;
 use objc2_quartz_core::CAMetalLayer;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+/// macOS GPU surface backed by an `NSView` and a `CAMetalLayer`.
+///
+/// Holds `Retained` references to both the view and the Metal layer so they stay
+/// alive as long as the context does.  `Send + Sync` is asserted manually because
+/// `Retained<NSView>` is not automatically `Send`; callers must ensure all AppKit
+/// operations happen on the main thread.
 #[cfg(target_os = "macos")]
 pub struct MacOSContext {
     view: Retained<NSView>,
@@ -15,16 +21,13 @@ unsafe impl Send for MacOSContext {}
 unsafe impl Sync for MacOSContext {}
 
 impl MacOSContext {
-    /// Constructs a Metal-backed NSView and wires it into the Tauri window hierarchy.
+    /// Create a Metal-backed `NSView` subview inside the given Tauri window.
     ///
-    /// Creates a new `NSView` at the specified position, attaches a `CAMetalLayer`,
-    /// and adds it as a subview of the window's content view. The resulting
-    /// `SurfaceHelper` can be passed to [`GpuContext::init_wgpu`](crate::GpuContext::init_wgpu)
+    /// Allocates a new `NSView` at the specified position, attaches a `CAMetalLayer`,
+    /// and adds it as a subview of the window's content view. Pass the returned
+    /// `MacOSContext` to [`GpuContext::init_wgpu`](crate::GpuContext::init_wgpu)
     /// via the [`SurfaceSource`] impl to obtain a fully configured wgpu surface.
     ///
-    /// Currently only implemented for macOS (`AppKit` window handles).
-    ///
-    /// Create a new Metal NSView subview inside the given Tauri window.
     /// # Parameters
     ///
     /// - `window` — any type that provides a raw window handle (e.g. `tauri::WebviewWindow`).
@@ -84,8 +87,15 @@ impl MacOSContext {
 impl SurfaceSource for MacOSContext {
     type Context = MacOSContext;
 
+    /// Create a wgpu surface from the `CAMetalLayer` and return the context alongside it.
+    ///
+    /// # Safety
+    ///
+    /// The `Surface<'static>` lifetime is obtained via `transmute`. The [`GpuContext`](crate::GpuContext)
+    /// field ordering ensures the surface is dropped before `MacOSContext`, keeping the
+    /// raw pointer valid for the surface's entire lifetime.
     fn create(self, instance: &wgpu::Instance) -> (MacOSContext, wgpu::Surface<'static>) {
-        let target = self.surface_target(); // the method we added earlier
+        let target = self.surface_target();
         let surface = unsafe {
             instance
                 .create_surface_unsafe(target)
@@ -98,6 +108,7 @@ impl SurfaceSource for MacOSContext {
 }
 
 impl SurfaceContext for MacOSContext {
+    /// Returns the current `NSView` frame size in physical pixels.
     fn initial_size(&self) -> (u32, u32) {
         let frame = self.view.frame();
         (frame.size.width as u32, frame.size.height as u32)

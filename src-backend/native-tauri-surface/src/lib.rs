@@ -120,10 +120,16 @@ impl GpuContext {
         &self.surface
     }
 
+    /// Hide the underlying native surface.
+    ///
+    /// Call when the panel has zero size or is not visible to avoid rendering artifacts.
     pub fn hide(&self) {
         self.owner.hide();
     }
 
+    /// Reposition and resize the native surface within its parent window.
+    ///
+    /// Delegates to [`SurfaceContext::update_frame`]. `x` and `y` are CSS pixel coords.
     pub fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
         self.owner.update_frame(x, y, width, height, window_height);
     }
