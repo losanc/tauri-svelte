@@ -138,11 +138,8 @@ impl GpuContext {
 
 /// Create a platform-native wgpu surface for the given window handle.
 ///
-/// Returns `Err` on platforms that are not yet supported.
 /// Must be called on the main thread.
-///
-/// Not available on WASM — use `WasmRenderer` with an `HtmlCanvasElement` instead.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_os = "macos")]
 pub fn create_surface(
     window: &impl raw_window_handle::HasWindowHandle,
     width: u32,
@@ -150,16 +147,39 @@ pub fn create_surface(
     x: u32,
     y: u32,
 ) -> Result<impl SurfaceSource, &'static str> {
-    #[cfg(target_os = "macos")]
-    return Ok(platform::macos::MacOSContext::new(
-        window, width, height, x, y,
-    ));
+    Ok(platform::macos::MacOSContext::new(window, width, height, x, y))
+}
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (window, width, height, x, y);
-        Err("platform not supported")
-    }
+// Uninhabited stub so `create_surface` compiles on unsupported native platforms.
+// Never constructed at runtime — `match self {}` / `match *self {}` are exhaustive
+// because there are no variants.
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+enum UnsupportedSurface {}
+
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+impl SurfaceContext for UnsupportedSurface {
+    fn initial_size(&self) -> (u32, u32) { match *self {} }
+    fn hide(&self) { match *self {} }
+    fn update_frame(&self, _: f64, _: f64, _: f64, _: f64, _: f64) { match *self {} }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+impl SurfaceSource for UnsupportedSurface {
+    type Context = UnsupportedSurface;
+    fn create(self, _: &wgpu::Instance) -> (Self::Context, wgpu::Surface<'static>) { match self {} }
+}
+
+/// Returns `Err("platform not supported")` on all non-macOS native platforms.
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+pub fn create_surface(
+    window: &impl raw_window_handle::HasWindowHandle,
+    width: u32,
+    height: u32,
+    x: u32,
+    y: u32,
+) -> Result<UnsupportedSurface, &'static str> {
+    let _ = (window, width, height, x, y);
+    Err("platform not supported")
 }
 
 #[cfg(test)]
