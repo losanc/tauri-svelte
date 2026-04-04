@@ -32,8 +32,7 @@ impl SurfaceContext for WasmContext {
     }
 
     fn hide(&self) {
-        use wgpu::web_sys::HtmlElement;
-        self.canvas.style().set_property("display", "none").ok();
+        // self.canvas.style().set_property("display", "none").ok();
     }
 
     fn update_frame(&self, _x: f64, _y: f64, width: f64, height: f64, _window_height: f64) {
