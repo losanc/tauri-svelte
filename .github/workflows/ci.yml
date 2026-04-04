@@ -20,6 +20,11 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: cache Rust (wasm)
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm
+
       - name: install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
@@ -54,6 +59,9 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: cache Rust
+        uses: Swatinem/rust-cache@v2
+
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -64,6 +72,13 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: latest
+
+      - name: cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
 
       - name: install frontend dependencies
         run: pnpm install
@@ -120,6 +135,9 @@ jobs:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: cache Rust
+        uses: Swatinem/rust-cache@v2
+
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04' # This must match the platform value defined above.
         run: |
@@ -130,6 +148,13 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: latest
+
+      - name: cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
 
       - name: install frontend dependencies
         run: pnpm install
