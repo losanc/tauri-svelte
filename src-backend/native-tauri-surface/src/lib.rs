@@ -147,7 +147,9 @@ pub fn create_surface(
     x: u32,
     y: u32,
 ) -> Result<impl SurfaceSource, &'static str> {
-    Ok(platform::macos::MacOSContext::new(window, width, height, x, y))
+    Ok(platform::macos::MacOSContext::new(
+        window, width, height, x, y,
+    ))
 }
 
 // Uninhabited stub so `create_surface` compiles on unsupported native platforms.
@@ -158,15 +160,23 @@ enum UnsupportedSurface {}
 
 #[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
 impl SurfaceContext for UnsupportedSurface {
-    fn initial_size(&self) -> (u32, u32) { match *self {} }
-    fn hide(&self) { match *self {} }
-    fn update_frame(&self, _: f64, _: f64, _: f64, _: f64, _: f64) { match *self {} }
+    fn initial_size(&self) -> (u32, u32) {
+        match *self {}
+    }
+    fn hide(&self) {
+        match *self {}
+    }
+    fn update_frame(&self, _: f64, _: f64, _: f64, _: f64, _: f64) {
+        match *self {}
+    }
 }
 
 #[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
 impl SurfaceSource for UnsupportedSurface {
     type Context = UnsupportedSurface;
-    fn create(self, _: &wgpu::Instance) -> (Self::Context, wgpu::Surface<'static>) { match self {} }
+    fn create(self, _: &wgpu::Instance) -> (Self::Context, wgpu::Surface<'static>) {
+        match self {}
+    }
 }
 
 /// Returns `Err("platform not supported")` on all non-macOS native platforms.
