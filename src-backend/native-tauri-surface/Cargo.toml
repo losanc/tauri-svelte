@@ -15,3 +15,6 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
 objc2-app-kit = { version = "0.3" }
 objc2-quartz-core = { version = "0.3" }
+
+[dev-dependencies]
+pollster = "*"

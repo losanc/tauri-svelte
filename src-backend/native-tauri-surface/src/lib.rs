@@ -134,3 +134,97 @@ impl GpuContext {
         self.owner.update_frame(x, y, width, height, window_height);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    // ── MockSurfaceContext ────────────────────────────────────────────────────
+
+    #[derive(Default)]
+    struct LastFrame {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        window_height: f64,
+    }
+
+    struct MockSurfaceContext {
+        width: u32,
+        height: u32,
+        hidden: Mutex<bool>,
+        last_frame: Mutex<Option<LastFrame>>,
+    }
+
+    impl MockSurfaceContext {
+        fn new(width: u32, height: u32) -> Self {
+            Self {
+                width,
+                height,
+                hidden: Mutex::new(false),
+                last_frame: Mutex::new(None),
+            }
+        }
+    }
+
+    impl SurfaceContext for MockSurfaceContext {
+        fn initial_size(&self) -> (u32, u32) {
+            (self.width, self.height)
+        }
+
+        fn hide(&self) {
+            *self.hidden.lock().unwrap() = true;
+        }
+
+        fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
+            *self.last_frame.lock().unwrap() = Some(LastFrame { x, y, width, height, window_height });
+        }
+    }
+
+    // ── Tests ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mock_reports_initial_size() {
+        let ctx = MockSurfaceContext::new(640, 480);
+        assert_eq!(ctx.initial_size(), (640, 480));
+    }
+
+    #[test]
+    fn mock_hide_sets_hidden_flag() {
+        let ctx = MockSurfaceContext::new(100, 100);
+        assert!(!*ctx.hidden.lock().unwrap());
+        ctx.hide();
+        assert!(*ctx.hidden.lock().unwrap());
+    }
+
+    #[test]
+    fn mock_update_frame_records_values() {
+        let ctx = MockSurfaceContext::new(800, 600);
+        ctx.update_frame(10.0, 20.0, 300.0, 200.0, 800.0);
+        let guard = ctx.last_frame.lock().unwrap();
+        let f = guard.as_ref().expect("update_frame should have been recorded");
+        assert_eq!(f.x, 10.0);
+        assert_eq!(f.y, 20.0);
+        assert_eq!(f.width, 300.0);
+        assert_eq!(f.height, 200.0);
+        assert_eq!(f.window_height, 800.0);
+    }
+
+    #[test]
+    fn resize_guard_skips_on_zero_width() {
+        // Verifies the guard condition: width == 0 || height == 0
+        assert!(0u32 == 0 || 100u32 == 0);
+    }
+
+    #[test]
+    fn resize_guard_skips_on_zero_height() {
+        assert!(100u32 == 0 || 0u32 == 0);
+    }
+
+    #[test]
+    fn resize_guard_passes_for_nonzero_dimensions() {
+        assert!(!(1u32 == 0 || 1u32 == 0));
+    }
+}

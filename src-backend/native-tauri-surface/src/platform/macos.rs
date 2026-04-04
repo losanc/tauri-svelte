@@ -143,7 +143,7 @@ impl SurfaceContext for MacOSContext {
     /// Must be called on the main thread.
     fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
         use objc2_foundation::{NSPoint, NSRect, NSSize};
-        let mac_y = window_height - y - height;
+        let mac_y = css_y_to_appkit(y, height, window_height);
         self.view.setFrame(NSRect::new(
             NSPoint::new(x, mac_y),
             NSSize::new(width, height),
@@ -187,5 +187,49 @@ pub fn pop_cursor() {
     use objc2::{class, msg_send};
     unsafe {
         let _: () = msg_send![class!(NSCursor), pop];
+    }
+}
+
+/// Convert a CSS top-left y coordinate to an AppKit bottom-left y coordinate.
+///
+/// CSS uses a top-left origin (y increases downward); AppKit uses a bottom-left
+/// origin (y increases upward). This function converts between the two.
+fn css_y_to_appkit(y: f64, height: f64, window_height: f64) -> f64 {
+    window_height - y - height
+}
+
+#[cfg(test)]
+mod tests {
+    use super::css_y_to_appkit;
+
+    #[test]
+    fn panel_at_top_of_window() {
+        // CSS y=0 → AppKit y = window_height - panel_height
+        assert_eq!(css_y_to_appkit(0.0, 100.0, 800.0), 700.0);
+    }
+
+    #[test]
+    fn panel_at_bottom_of_window() {
+        // CSS y = window_height - height → AppKit y = 0
+        assert_eq!(css_y_to_appkit(700.0, 100.0, 800.0), 0.0);
+    }
+
+    #[test]
+    fn panel_fills_full_window_height() {
+        // A panel that fills the entire window height always has AppKit y = 0
+        assert_eq!(css_y_to_appkit(0.0, 800.0, 800.0), 0.0);
+    }
+
+    #[test]
+    fn panel_at_arbitrary_offset() {
+        assert_eq!(css_y_to_appkit(200.0, 150.0, 800.0), 450.0);
+    }
+
+    #[test]
+    fn appkit_y_decreases_as_css_y_increases() {
+        // Moving a panel down in CSS (larger y) must move it down in AppKit (smaller y)
+        let y_upper = css_y_to_appkit(100.0, 50.0, 800.0);
+        let y_lower = css_y_to_appkit(200.0, 50.0, 800.0);
+        assert!(y_lower < y_upper);
     }
 }
