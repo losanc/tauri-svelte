@@ -80,14 +80,11 @@ jobs:
       - name: frontend tests
         run: pnpm test
 
+      - name: check Rust formatting
+        run: cargo fmt --all -- --check
+        
       - name: backend tests
         run: cargo test --workspace
-
-      - name: check Rust formatting
-        run: |
-          if ! cargo fmt --all -- --check; then
-            echo "::warning::Rust code is not formatted. Run 'cargo fmt' locally."
-          fi
 
   # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
   publish-tauri:

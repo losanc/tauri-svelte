@@ -7,6 +7,7 @@ Usage: python dev.py <command> [options]
 import sys
 import subprocess
 import argparse
+from tabnanny import check
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,15 @@ def cmd_tag_test(args):
     print(f"\n[tag:test] branch={branch}")
     cmd_git_set_tag("test")
 
+def cmd_run_test(args):
+    """Runs the rs & js tests."""
+    branch = current_branch()
+    print(f"\n[tag:test] branch={branch}")
+    run(["pnpm", "check"], check=False)
+    run(["pnpm", "test"], check=False)
+    run(["cargo", "fmt", "--all", "--", "--check"], check=False)
+    run(["cargo", "test", "--workspace"], check=False)
+
 def cmd_status(args):
     """Show git status and current branch."""
     branch = current_branch()
@@ -48,6 +58,7 @@ def cmd_status(args):
 # ── CLI ─────────────────────────────────────────────────────────────────
 COMMANDS = {
     "tag:test": (cmd_tag_test, "Reset and push the 'test' tag to the current HEAD"),
+    "run:test": (cmd_run_test, "Runs the rs & js tests"),
     "status":   (cmd_status,   "Show git status and current branch"),
 }
 
