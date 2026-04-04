@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createDockview } from 'dockview-core';
+  import { createDockview, themeAbyss } from 'dockview-core';
   import 'dockview-core/dist/styles/dockview.css';
   import { onDestroy } from 'svelte';
 
@@ -8,7 +8,12 @@
 
   $effect(() => {
     api = createDockview(container, {
-      theme: 'abyss', // dark editor theme
+      theme: themeAbyss,
+      createComponent({ name }) {
+        const el = document.createElement('div');
+        el.textContent = name;
+        return { element: el, init: () => {}, dispose: () => {} };
+      },
     });
 
     // Add a starter panel

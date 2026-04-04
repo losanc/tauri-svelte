@@ -9,8 +9,35 @@ on:
       - 'test'
 
 jobs:
+  build-wasm:
+    if: startsWith(github.ref, 'refs/tags/test') || github.ref == 'refs/heads/release'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+
+      - name: build wasm
+        run: pnpm build:wasm
+
+      - name: upload wasm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-gpu
+          path: src-frontend/src/lib/wasm_gpu/
+          retention-days: 1
+
   test:
     if: startsWith(github.ref, 'refs/tags/test')
+    needs: build-wasm
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +68,12 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
+      - name: download wasm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-gpu
+          path: src-frontend/src/lib/wasm_gpu/
+
       - name: frontend type check
         run: pnpm check
 
@@ -59,6 +92,7 @@ jobs:
   # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
   publish-tauri:
     if: github.ref == 'refs/heads/release'
+    needs: build-wasm
     permissions:
       contents: write
     strategy:
@@ -103,6 +137,12 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
+      - name: download wasm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-gpu
+          path: src-frontend/src/lib/wasm_gpu/
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -113,3 +153,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          beforeBuildCommand: 'pnpm build:frontend'

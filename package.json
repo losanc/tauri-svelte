@@ -4,9 +4,10 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build:wasm": "wasm-pack build src-backend/wgpu-renderer --target web --out-dir ../../src-frontend/lib/wasm_gpu",
+    "build:wasm": "wasm-pack build src-backend/wgpu-renderer --target web --out-dir ../../src-frontend/src/lib/wasm_gpu",
+    "build:frontend": "cd src-frontend && vite build",
     "dev": "cd src-frontend && vite dev",
-    "build": "pnpm build:wasm && cd src-frontend && vite build",
+    "build": "pnpm build:wasm && pnpm build:frontend",
     "preview": "cd src-frontend && vite preview",
     "check": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
