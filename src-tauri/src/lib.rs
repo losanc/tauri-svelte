@@ -1,4 +1,4 @@
-use native_tauri_surface::surface_helper::native::SurfaceHelper;
+use native_tauri_surface::MacOSContext;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
@@ -21,7 +21,7 @@ fn init_surface(
     }
     let map = Arc::clone(&surfaces);
     app.run_on_main_thread(move || {
-        let tauri_surface = SurfaceHelper::new(&window, 1, 1, 0, 0);
+        let tauri_surface = MacOSContext::new(&window, 1, 1, 0, 0);
         let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
         map.lock().unwrap().insert(label, renderer);
     })
@@ -49,20 +49,17 @@ fn set_surface_rect(
             .ok_or("surface not initialized")?
     };
 
-    // Resizer is a lightweight clone of the Retained handles — obtained outside the lock.
-    let resizer = renderer.resizer();
-
     if width <= 0.0 || height <= 0.0 {
         return app
-            .run_on_main_thread(move || unsafe { resizer.hide() })
+            .run_on_main_thread(move || renderer.hide())
             .map_err(|e| format!("{e:?}"));
     }
 
     // GPU resize outside the lock — surface reconfigure must not block other commands.
     renderer.resize((width * scale) as u32, (height * scale) as u32);
 
-    app.run_on_main_thread(move || unsafe {
-        resizer.update_frame(x, y, width, height, window_height);
+    app.run_on_main_thread(move || {
+        renderer.update_frame(x, y, width, height, window_height);
     })
     .map_err(|e| format!("{e:?}"))
 }
@@ -86,7 +83,7 @@ fn render_surface(window: tauri::WebviewWindow, surfaces: tauri::State<'_, Surfa
 fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), String> {
     app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]
-        native_tauri_surface::surface_helper::native::push_resize_cursor(horizontal);
+        native_tauri_surface::push_cursor(if horizontal { "ew-resize" } else { "ns-resize" });
     })
     .map_err(|e| format!("{e:?}"))
 }
@@ -96,7 +93,7 @@ fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), Str
 fn pop_resize_cursor(app: tauri::AppHandle) -> Result<(), String> {
     app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]
-        native_tauri_surface::surface_helper::native::pop_cursor();
+        native_tauri_surface::pop_cursor();
     })
     .map_err(|e| format!("{e:?}"))
 }

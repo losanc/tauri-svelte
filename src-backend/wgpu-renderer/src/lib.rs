@@ -56,14 +56,12 @@ impl Renderer {
         Self { ctx, pipeline }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn resizer(&self) -> native_tauri_surface::SurfaceResizer {
-        self.ctx.resizer()
+    pub fn hide(&self) {
+        self.ctx.hide();
     }
 
-    #[cfg(target_arch = "wasm32")]
-    pub fn canvas(&self) -> &wgpu::web_sys::HtmlCanvasElement {
-        self.ctx.canvas()
+    pub fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
+        self.ctx.update_frame(x, y, width, height, window_height);
     }
 
     pub fn resize(&self, width: u32, height: u32) {
@@ -153,17 +151,13 @@ mod wasm {
 
     impl GpuSurface for WasmRenderer {
         fn set_rect(&self, _x: f64, _y: f64, width: f64, height: f64) {
-            let canvas = self.inner.canvas();
             let dpr = web_sys::window()
                 .map(|w| w.device_pixel_ratio())
                 .unwrap_or(1.0);
             let w = (width * dpr) as u32;
             let h = (height * dpr) as u32;
-            if canvas.width() != w || canvas.height() != h {
-                canvas.set_width(w);
-                canvas.set_height(h);
-                self.inner.resize(w, h);
-            }
+            self.inner.update_frame(0.0, 0.0, w as f64, h as f64, 0.0);
+            self.inner.resize(w, h);
         }
 
         fn render(&self) {

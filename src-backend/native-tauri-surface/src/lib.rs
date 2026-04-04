@@ -1,9 +1,10 @@
-pub mod surface_helper;
-pub use surface_helper::{SurfaceOwner, SurfaceSource};
+pub mod platform;
+pub use platform::surface_context::{CursorContext, SurfaceContext, SurfaceSource};
 
-#[cfg(not(target_arch = "wasm32"))]
-pub use surface_helper::native::SurfaceResizer;
+#[cfg(target_os = "macos")]
+pub use platform::{MacOSContext, pop_cursor, push_cursor};
 
+use std::sync::Arc;
 mod log;
 use wgpu::{Device, Queue, Surface, TextureFormat};
 
@@ -32,8 +33,8 @@ pub trait GpuSurface {
 /// so the surface (which holds a raw pointer into `owner`'s native resources) is released
 /// before the native resources themselves. **Do not reorder these fields.**
 pub struct GpuContext {
-    surface: Surface<'static>, // drops 1st — releases raw pointer
-    owner: SurfaceOwner,       // drops 2nd — frees native resources (NSView / CAMetalLayer)
+    surface: Surface<'static>,      // drops 1st — releases raw pointer
+    owner: Arc<dyn SurfaceContext>, // drops 2nd — frees native resources (NSView / CAMetalLayer)
     pub device: Device,
     pub queue: Queue,
     pub format: TextureFormat,
@@ -47,14 +48,9 @@ impl GpuContext {
     /// Uses `PresentMode::Fifo` (vsync) and `CompositeAlphaMode::Auto`.
     pub async fn init_wgpu(source: impl SurfaceSource) -> Self {
         let instance = wgpu::Instance::default();
-        let (owner, surface, width, height) = source.create(&instance);
-        // SAFETY: `owner` is stored in this struct alongside `surface`.
-        // The field declaration order guarantees `surface` drops before `owner`,
-        // preserving the borrow for the entire lifetime of `GpuContext`.
-        // Both `create_surface_unsafe` (native) and `SurfaceTarget::Canvas` (WASM)
-        // already return `Surface<'static>` from wgpu; the transmute is a no-op in
-        // practice but required because the trait expresses `Surface<'_>`.
-        let surface: Surface<'static> = unsafe { std::mem::transmute(surface) };
+        let (context, surface) = source.create(&instance);
+        let (init_w, init_h) = context.initial_size();
+        let owner: Arc<dyn SurfaceContext> = Arc::new(context);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
@@ -78,8 +74,8 @@ impl GpuContext {
             &wgpu::SurfaceConfiguration {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                 format,
-                width,
-                height,
+                width: init_w.max(1),
+                height: init_h.max(1),
                 present_mode: wgpu::PresentMode::Fifo,
                 alpha_mode: wgpu::CompositeAlphaMode::Auto,
                 view_formats: vec![],
@@ -103,6 +99,7 @@ impl GpuContext {
         if width == 0 || height == 0 {
             return;
         }
+
         self.surface.configure(
             &self.device,
             &wgpu::SurfaceConfiguration {
@@ -123,20 +120,11 @@ impl GpuContext {
         &self.surface
     }
 
-    /// Returns a [`SurfaceResizer`] — a lightweight clone of the native handles
-    /// used to reposition and resize the Metal layer from the main thread.
-    ///
-    /// Only available on native (non-WASM) targets.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn resizer(&self) -> SurfaceResizer {
-        self.owner.resizer()
+    pub fn hide(&self) {
+        self.owner.hide();
     }
 
-    /// Returns the `HtmlCanvasElement` that backs this surface.
-    ///
-    /// Only available on WASM targets.
-    #[cfg(target_arch = "wasm32")]
-    pub fn canvas(&self) -> &wgpu::web_sys::HtmlCanvasElement {
-        self.owner.canvas()
+    pub fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
+        self.owner.update_frame(x, y, width, height, window_height);
     }
 }
