@@ -140,6 +140,9 @@ impl GpuContext {
 ///
 /// Returns `Err` on platforms that are not yet supported.
 /// Must be called on the main thread.
+///
+/// Not available on WASM — use `WasmRenderer` with an `HtmlCanvasElement` instead.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn create_surface(
     window: &impl raw_window_handle::HasWindowHandle,
     width: u32,
