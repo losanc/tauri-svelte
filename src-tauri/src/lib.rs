@@ -21,12 +21,23 @@ fn init_surface(
     let map = Arc::clone(&surfaces);
 
     #[cfg(target_os = "macos")]
-    app.run_on_main_thread(move || {
-        let tauri_surface = native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
-        let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
-        map.lock().unwrap().insert(label, renderer);
-    })
-    .map_err(|e| format!("{e:?}"))
+    {
+        app.run_on_main_thread(move || {
+            let tauri_surface =
+                native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
+            let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
+            map.lock().unwrap().insert(label, renderer);
+        })
+        .map_err(|e| format!("{e:?}"))?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, window, map, label);
+        return Err("platform not supported".into());
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
