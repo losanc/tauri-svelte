@@ -99,8 +99,8 @@ jobs:
         run: cargo fmt --all -- --check
         continue-on-error: true
 
-      - name: backend tests
-        run: cargo test --workspace
+      - name: backend tests (skip Tauri integration on Windows — WebView2 unavailable)
+        run: cargo test --workspace ${{ matrix.platform == 'windows-latest' && '--exclude tauri-svelte' || '' }}
 
   # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
   publish-tauri:
