@@ -26,7 +26,7 @@ jobs:
           version: latest
 
       - name: build wasm
-        run: pnpm build:wasm
+        run: wasm-pack build src-backend/wgpu-renderer --target web --out-dir ../../src-frontend/src/lib/wasm_gpu
 
       - name: upload wasm artifact
         uses: actions/upload-artifact@v4
