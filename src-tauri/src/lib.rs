@@ -2,8 +2,8 @@ use native_tauri_surface::MacOSContext;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use wgpu_renderer::Renderer;
 use utils_api::fs;
+use wgpu_renderer::Renderer;
 
 type SurfaceMap = Arc<Mutex<HashMap<String, Arc<Renderer>>>>;
 

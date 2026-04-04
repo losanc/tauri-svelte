@@ -5,10 +5,46 @@ on:
   push:
     branches:
       - release
+    tags:
+      - 'test'
 
-# On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
 jobs:
+  test:
+    if: startsWith(github.ref, 'refs/tags/test')
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['macos-latest', 'ubuntu-22.04', 'windows-latest']
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: install frontend dependencies
+        run: pnpm install
+
+      - name: frontend type check
+        run: pnpm check
+
+      - name: backend tests
+        run: cargo test --workspace
+
+  # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
   publish-tauri:
+    if: github.ref == 'refs/heads/release'
     permissions:
       contents: write
     strategy:

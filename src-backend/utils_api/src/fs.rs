@@ -18,11 +18,7 @@ pub fn list_dirs(path: &str) -> Result<Vec<DirEntry>, String> {
             .map_err(|e| format!("{e}"))?
             .filter_map(|r| r.ok())
             .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
-            .filter(|e| {
-                !e.file_name()
-                    .to_string_lossy()
-                    .starts_with('.')
-            })
+            .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
             .map(|e| {
                 let path = e.path().to_string_lossy().into_owned();
                 let name = e.file_name().to_string_lossy().into_owned();
