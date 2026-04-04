@@ -3,8 +3,16 @@
 use {objc2::rc::Retained, objc2_app_kit::NSView, objc2_quartz_core::CAMetalLayer};
 
 /// Owns the native resources that the wgpu surface's raw pointer points into.
-/// Stored inside `GpuContext` alongside the surface, with a field declaration
-/// order that guarantees the surface drops before the owner.
+///
+/// Stored inside [`GpuContext`](crate::GpuContext) alongside the `Surface`, with field
+/// declaration order guaranteeing the surface drops before this owner. Variants are
+/// platform-exclusive — only one is compiled per target.
+///
+/// # Safety
+///
+/// Fields are only accessed on their respective thread:
+/// - **Native:** main thread only, enforced via `run_on_main_thread`.
+/// - **WASM:** single-threaded environment.
 pub enum SurfaceOwner {
     #[cfg(target_arch = "wasm32")]
     Wasm {
@@ -27,8 +35,10 @@ unsafe impl Send for SurfaceOwner {}
 unsafe impl Sync for SurfaceOwner {}
 
 impl SurfaceOwner {
-    /// Returns a lightweight clone of the native handles for dispatching
-    /// AppKit operations (setFrame, setHidden) to the main thread.
+    /// Returns a [`SurfaceResizer`] — a lightweight clone of the native handles
+    /// for dispatching AppKit frame and visibility operations to the main thread.
+    ///
+    /// Only available on native (non-WASM) targets.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resizer(&self) -> native::SurfaceResizer {
         match self {
@@ -39,6 +49,9 @@ impl SurfaceOwner {
         }
     }
 
+    /// Returns the `HtmlCanvasElement` that backs this surface.
+    ///
+    /// Only available on WASM targets.
     #[cfg(target_arch = "wasm32")]
     pub fn canvas(&self) -> &wgpu::web_sys::HtmlCanvasElement {
         match self {
@@ -47,9 +60,13 @@ impl SurfaceOwner {
     }
 }
 
-/// Creates a wgpu surface and returns the `SurfaceOwner` that keeps the
-/// underlying native resources alive alongside it.
+/// Creates a wgpu surface from a platform-specific source and returns
+/// the [`SurfaceOwner`] that keeps the underlying native resources alive alongside it.
 pub trait SurfaceSource {
+    /// Consume this source, create a wgpu surface via `instance`, and return:
+    /// - the [`SurfaceOwner`] that must outlive the surface,
+    /// - the surface itself,
+    /// - and the initial `(width, height)` in physical pixels.
     fn create(self, instance: &wgpu::Instance) -> (SurfaceOwner, wgpu::Surface<'_>, u32, u32);
 }
 
@@ -80,8 +97,12 @@ pub mod native {
     use objc2_quartz_core::CAMetalLayer;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-    /// Short-lived clone of native handles, used to dispatch AppKit operations
-    /// (setFrame, setHidden) to the main thread via `run_on_main_thread`.
+    /// A lightweight clone of the native Metal layer handles, used to dispatch
+    /// AppKit frame and visibility operations to the main thread via
+    /// `app.run_on_main_thread(...)`.
+    ///
+    /// Obtained from [`SurfaceOwner::resizer`] or [`GpuContext::resizer`](crate::GpuContext::resizer).
+    /// Cheap to clone — both fields are Objective-C `Retained` (reference-counted) pointers.
     pub struct SurfaceResizer {
         pub ns_view: Retained<NSView>,
         pub metal_layer: Retained<CAMetalLayer>,
@@ -92,14 +113,32 @@ pub mod native {
     unsafe impl Sync for SurfaceResizer {}
 
     impl SurfaceResizer {
-        /// Hide the Metal layer. Must be called on the main thread.
+        /// Hide the Metal layer by setting the NSView hidden flag.
+        ///
+        /// Call this when the panel has zero size or is not visible.
+        ///
+        /// # Safety
+        ///
+        /// Must be called on the main thread.
         pub unsafe fn hide(&self) {
             self.ns_view.setHidden(true);
         }
 
-        /// Reposition and resize the Metal NSView.
-        /// `x`, `y`, `width`, `height` are in logical (CSS) pixels, top-left origin.
-        /// `window_height` is the logical height of the window's inner content area.
+        /// Reposition and resize the Metal NSView within its parent window.
+        ///
+        /// Converts from CSS pixel coordinates (top-left origin, `y` increasing downward)
+        /// to AppKit coordinates (bottom-left origin, `y` increasing upward) using
+        /// `window_height`.
+        ///
+        /// # Parameters
+        ///
+        /// - `x`, `y` — panel position in logical (CSS) pixels, top-left origin.
+        /// - `width`, `height` — panel size in logical pixels.
+        /// - `window_height` — logical height of the window's inner content area,
+        ///   used to flip the y-axis for AppKit.
+        ///
+        /// # Safety
+        ///
         /// Must be called on the main thread.
         pub unsafe fn update_frame(
             &self,
@@ -119,9 +158,15 @@ pub mod native {
         }
     }
 
-    /// Push a resize cursor onto the macOS cursor stack.
+    /// Push a resize cursor onto the macOS NSCursor stack.
+    ///
     /// Pushed cursors take precedence over NSWindow cursor rects (including
-    /// WKWebView's). Must be called on the main thread.
+    /// WKWebView's), ensuring the correct resize icon appears over dockview sashes
+    /// regardless of CSS cursor values. Pair every push with [`pop_cursor`].
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the main thread.
     pub fn push_resize_cursor(horizontal: bool) {
         unsafe {
             use objc2::runtime::AnyObject;
@@ -135,7 +180,12 @@ pub mod native {
         }
     }
 
-    /// Pop the top cursor from the macOS cursor stack (pair with push_resize_cursor).
+    /// Pop the top cursor from the macOS NSCursor stack.
+    ///
+    /// Must be paired with a prior call to [`push_resize_cursor`].
+    ///
+    /// # Safety
+    ///
     /// Must be called on the main thread.
     pub fn pop_cursor() {
         unsafe {
@@ -144,6 +194,14 @@ pub mod native {
         }
     }
 
+    /// Constructs a Metal-backed NSView and wires it into the Tauri window hierarchy.
+    ///
+    /// Creates a new `NSView` at the specified position, attaches a `CAMetalLayer`,
+    /// and adds it as a subview of the window's content view. The resulting
+    /// `SurfaceHelper` can be passed to [`GpuContext::init_wgpu`](crate::GpuContext::init_wgpu)
+    /// via the [`SurfaceSource`] impl to obtain a fully configured wgpu surface.
+    ///
+    /// Currently only implemented for macOS (`AppKit` window handles).
     pub struct SurfaceHelper {
         surface: wgpu::SurfaceTargetUnsafe,
         metal_view: Retained<NSView>,
@@ -153,6 +211,18 @@ pub mod native {
     }
 
     impl SurfaceHelper {
+        /// Create a new Metal NSView subview inside the given Tauri window.
+        ///
+        /// # Parameters
+        ///
+        /// - `window` — any type that provides a raw window handle (e.g. `tauri::WebviewWindow`).
+        /// - `width`, `height` — initial surface size in physical pixels.
+        /// - `position_x`, `position_y` — initial position within the window in physical pixels.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the window handle is not an AppKit handle, or if the NSView / window
+        /// hierarchy cannot be retrieved.
         pub fn new(
             window: &impl HasWindowHandle,
             width: u32,
