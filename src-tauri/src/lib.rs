@@ -5,7 +5,7 @@ use tauri::Manager;
 use utils_api::fs;
 use wgpu_renderer::Renderer;
 
-type SurfaceMap = Arc<Mutex<HashMap<String, Arc<Renderer>>>>;
+pub type SurfaceMap = Arc<Mutex<HashMap<String, Arc<Renderer>>>>;
 
 /// Create a native wgpu surface for the calling window.
 /// Idempotent — safe to call even if the surface already exists.
