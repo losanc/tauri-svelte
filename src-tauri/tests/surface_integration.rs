@@ -109,7 +109,10 @@ fn set_surface_rect_error_path_for_uninitialised_surface() {
         .ok()
         .and_then(|m| m.get(window.label()).map(Arc::clone));
 
-    assert!(found.is_none(), "surface not initialized — expected None, got Some");
+    assert!(
+        found.is_none(),
+        "surface not initialized — expected None, got Some"
+    );
 }
 
 // ── platform detection ────────────────────────────────────────────────────────
@@ -127,7 +130,8 @@ fn tauri_context_runs_on_macos() {
         .expect("failed to create mock window");
 
     assert_eq!(
-        std::env::consts::OS, "macos",
+        std::env::consts::OS,
+        "macos",
         "Native surface support requires macOS; this CI runner is not macOS"
     );
 }

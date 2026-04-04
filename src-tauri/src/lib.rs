@@ -19,7 +19,7 @@ fn init_surface(
         return Ok(());
     }
     let map = Arc::clone(&surfaces);
-    
+
     #[cfg(target_os = "macos")]
     app.run_on_main_thread(move || {
         let tauri_surface = native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();

@@ -148,7 +148,9 @@ pub fn create_surface(
     y: u32,
 ) -> Result<impl SurfaceSource, &'static str> {
     #[cfg(target_os = "macos")]
-    return Ok(platform::macos::MacOSContext::new(window, width, height, x, y));
+    return Ok(platform::macos::MacOSContext::new(
+        window, width, height, x, y,
+    ));
 
     #[cfg(not(target_os = "macos"))]
     {
@@ -201,7 +203,13 @@ mod tests {
         }
 
         fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
-            *self.last_frame.lock().unwrap() = Some(LastFrame { x, y, width, height, window_height });
+            *self.last_frame.lock().unwrap() = Some(LastFrame {
+                x,
+                y,
+                width,
+                height,
+                window_height,
+            });
         }
     }
 
@@ -226,7 +234,9 @@ mod tests {
         let ctx = MockSurfaceContext::new(800, 600);
         ctx.update_frame(10.0, 20.0, 300.0, 200.0, 800.0);
         let guard = ctx.last_frame.lock().unwrap();
-        let f = guard.as_ref().expect("update_frame should have been recorded");
+        let f = guard
+            .as_ref()
+            .expect("update_frame should have been recorded");
         assert_eq!(f.x, 10.0);
         assert_eq!(f.y, 20.0);
         assert_eq!(f.width, 300.0);
