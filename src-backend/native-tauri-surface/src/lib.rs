@@ -2,7 +2,8 @@ pub mod platform;
 pub use platform::surface_context::{CursorContext, SurfaceContext, SurfaceSource};
 
 #[cfg(target_os = "macos")]
-pub use platform::{MacOSContext, pop_cursor, push_cursor};
+pub use platform::{pop_cursor, push_cursor};
+// MacOSContext is intentionally not re-exported; use `create_surface` instead.
 
 use std::sync::Arc;
 mod log;
@@ -132,6 +133,27 @@ impl GpuContext {
     /// Delegates to [`SurfaceContext::update_frame`]. `x` and `y` are CSS pixel coords.
     pub fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
         self.owner.update_frame(x, y, width, height, window_height);
+    }
+}
+
+/// Create a platform-native wgpu surface for the given window handle.
+///
+/// Returns `Err` on platforms that are not yet supported.
+/// Must be called on the main thread.
+pub fn create_surface(
+    window: &impl raw_window_handle::HasWindowHandle,
+    width: u32,
+    height: u32,
+    x: u32,
+    y: u32,
+) -> Result<impl SurfaceSource, &'static str> {
+    #[cfg(target_os = "macos")]
+    return Ok(platform::macos::MacOSContext::new(window, width, height, x, y));
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, width, height, x, y);
+        Err("platform not supported")
     }
 }
 
