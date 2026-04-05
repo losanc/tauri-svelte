@@ -7,7 +7,6 @@ Usage: python dev.py <command> [options]
 import sys
 import subprocess
 import argparse
-from tabnanny import check
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
