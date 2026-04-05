@@ -11,7 +11,6 @@ from tabnanny import check
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
-
 def run(cmd: list[str], *, check: bool = True, capture: bool = False) -> subprocess.CompletedProcess:
     print(f"  » {' '.join(cmd)}")
     return subprocess.run(cmd, check=check, capture_output=capture, text=True)
@@ -25,19 +24,25 @@ def current_branch() -> str:
     result = git("rev-parse", "--abbrev-ref", "HEAD", capture=True)
     return result.stdout.strip()
 
-
-# ── commands ───────────────────────────────────────────────────────────────────
 def cmd_git_set_tag(tag: str):
     run(["git", "tag", "-d", tag], check=False)
     run(["git", "push", "origin", f":refs/tags/{tag}"], check=False)
     git("tag", tag)
     git("push", "origin", tag)
 
+
+# ── commands ───────────────────────────────────────────────────────────────────
 def cmd_tag_test(args):
     """Remove any existing 'test' tag (local + remote) and re-create it at HEAD."""
     branch = current_branch()
     print(f"\n[tag:test] branch={branch}")
     cmd_git_set_tag("test")
+
+def cmd_tag_release(args):
+    """Remove any existing 'release' tag (local + remote) and re-create it at HEAD."""
+    branch = current_branch()
+    print(f"\n[tag:release] branch={branch}")
+    cmd_git_set_tag("release")
 
 def cmd_run_test(args):
     """Runs the rs & js tests."""
@@ -48,20 +53,20 @@ def cmd_run_test(args):
     run(["cargo", "fmt", "--all", "--", "--check"], check=False)
     run(["cargo", "test", "--workspace"], check=False)
 
-def cmd_status(args):
-    """Show git status and current branch."""
+def cmd_run_fmt(args):
+    """Runs the rs & js formatting."""
     branch = current_branch()
-    print(f"\n[status] branch={branch}\n")
-    git("status", "--short")
-
+    print(f"\n[tag:fmt] branch={branch}")
+    run(["pnpm", "fmt"], check=False)
+    run(["cargo", "fmt", "--all"], check=False)
 
 # ── CLI ─────────────────────────────────────────────────────────────────
 COMMANDS = {
-    "tag:test": (cmd_tag_test, "Reset and push the 'test' tag to the current HEAD"),
     "run:test": (cmd_run_test, "Runs the rs & js tests"),
-    "status":   (cmd_status,   "Show git status and current branch"),
+    "run:fmt": (cmd_run_fmt, "Runs the rs & js formatting"),
+    "tag:test": (cmd_tag_test, "Reset and push the 'test' tag to the current HEAD"),
+    "tag:release": (cmd_tag_release, "Reset and push the 'release' tag to the current HEAD"),
 }
-
 
 def main():
     parser = argparse.ArgumentParser(

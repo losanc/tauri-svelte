@@ -3,10 +3,9 @@ name: 'publish'
 
 on:
   push:
-    branches:
-      - release
     tags:
       - 'test'
+      - 'release'
 
 jobs:
   build-wasm:
@@ -104,7 +103,7 @@ jobs:
 
   # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
   publish-tauri:
-    if: github.ref == 'refs/heads/release'
+    if: startsWith(github.ref, 'refs/tags/release')
     needs: build-wasm
     permissions:
       contents: write
