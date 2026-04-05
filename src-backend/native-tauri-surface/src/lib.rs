@@ -152,13 +152,37 @@ pub fn create_surface(
     ))
 }
 
+/// Create a platform-native wgpu surface for the given window handle on Windows.
+///
+/// Must be called on the main thread.
+#[cfg(target_os = "windows")]
+pub fn create_surface(
+    window: &impl raw_window_handle::HasWindowHandle,
+    width: u32,
+    height: u32,
+    x: u32,
+    y: u32,
+) -> Result<impl SurfaceSource, &'static str> {
+    Ok(platform::windows::WindowsContext::new(
+        window, width, height, x, y,
+    ))
+}
+
 // Uninhabited stub so `create_surface` compiles on unsupported native platforms.
 // Never constructed at runtime — `match self {}` / `match *self {}` are exhaustive
 // because there are no variants.
-#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 enum UnsupportedSurface {}
 
-#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 impl SurfaceContext for UnsupportedSurface {
     fn initial_size(&self) -> (u32, u32) {
         match *self {}
@@ -171,7 +195,11 @@ impl SurfaceContext for UnsupportedSurface {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 impl SurfaceSource for UnsupportedSurface {
     type Context = UnsupportedSurface;
     fn create(self, _: &wgpu::Instance) -> (Self::Context, wgpu::Surface<'static>) {
@@ -179,8 +207,12 @@ impl SurfaceSource for UnsupportedSurface {
     }
 }
 
-/// Returns `Err("platform not supported")` on all non-macOS native platforms.
-#[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
+/// Returns `Err("platform not supported")` on unsupported native platforms (not macOS, not Windows).
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 pub fn create_surface(
     window: &impl raw_window_handle::HasWindowHandle,
     width: u32,
