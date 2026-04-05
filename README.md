@@ -44,6 +44,24 @@ pnpm test           # Vitest (frontend unit tests)
 pnpm test:all       # Full suite: svelte-check + vitest + cargo fmt check + cargo test --workspace
 ```
 
+## Native App Bundle
+
+```bash
+pnpm tauri build    # Production bundle (runs pnpm build first, then compiles + packages)
+```
+
+Output is in `src-tauri/target/release/bundle/`:
+- **macOS** — `.app` and `.dmg` under `macos/`
+
+To target a specific bundle format:
+
+```bash
+pnpm tauri build --bundle dmg    # macOS disk image only
+pnpm tauri build --bundle app    # .app only (no installer)
+```
+
+> Note: macOS release builds require code signing for distribution outside your machine. For local testing, unsigned `.app` bundles work fine.
+
 ## Deployment Tags
 
 Managed via `dev.py` (also aliased in `package.json`):
