@@ -54,7 +54,16 @@ export function useKeyboardNav(opts: KeyboardNavOptions) {
         break;
       }
 
-      case 'ArrowRight':
+      case 'ArrowRight': {
+        e.preventDefault();
+        const idx = col.entries.findIndex((en) => en.path === col.selectedPath);
+        const nextPath = col.entries[idx]?.path ?? col.entries[0]?.path;
+        if (nextPath) {
+          opts.selectEntry(fi, nextPath);
+        }
+        opts.navigateRight();
+        break;
+      }
       case 'Enter': {
         e.preventDefault();
         opts.navigateRight();
