@@ -57,13 +57,13 @@ def cmd_run_fmt(args):
     """Runs the rs & js formatting."""
     branch = current_branch()
     print(f"\n[tag:fmt] branch={branch}")
-    run(["pnpm", "fmt"], check=False)
+    run(["pnpm", "format"], check=False)
     run(["cargo", "fmt", "--all"], check=False)
 
 # ── CLI ─────────────────────────────────────────────────────────────────
 COMMANDS = {
-    "run:test": (cmd_run_test, "Runs the rs & js tests"),
-    "run:fmt": (cmd_run_fmt, "Runs the rs & js formatting"),
+    "test": (cmd_run_test, "Runs the rs & js tests"),
+    "fmt": (cmd_run_fmt, "Runs the rs & js formatting"),
     "tag:test": (cmd_tag_test, "Reset and push the 'test' tag to the current HEAD"),
     "tag:release": (cmd_tag_release, "Reset and push the 'release' tag to the current HEAD"),
 }

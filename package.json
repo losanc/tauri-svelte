@@ -6,12 +6,17 @@
   "scripts": {
     "build:wasm": "wasm-pack build src-backend/wgpu-renderer --target web --out-dir ../../src-frontend/src/lib/wasm_gpu",
     "build:frontend": "cd src-frontend && vite build",
-    "dev": "cd src-frontend && vite dev",
     "build": "pnpm build:wasm && pnpm build:frontend",
+    "dev": "cd src-frontend && vite dev",
     "preview": "cd src-frontend && vite preview",
     "check": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "cd src-frontend && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "cd src-frontend && vitest run",
+    "test:all": "python3 dev.py test",
+    "format": "prettier --write \"src-frontend/src/**/*.{ts,svelte,css,js}\"",
+    "format:all": "python3 dev.py fmt",
+    "tag:test": "python3 dev.py tag:test",
+    "tag:release": "python3 dev.py tag:release",
     "tauri": "tauri"
   },
   "license": "MIT",
