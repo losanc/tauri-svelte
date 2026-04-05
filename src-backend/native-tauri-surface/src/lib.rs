@@ -37,7 +37,7 @@ pub trait SurfaceContext: Send + Sync {
 /// dropped before the owning context.
 pub trait SurfaceSource {
     /// Create a [`SurfaceContext`] and a wgpu surface from this source.
-    fn init(
+    fn create_surface_context(
         self,
         instance: &wgpu::Instance,
         width: u32,
@@ -70,7 +70,7 @@ impl GpuContext {
     /// Uses `PresentMode::Fifo` (vsync) and `CompositeAlphaMode::Auto`.
     pub async fn init_wgpu(source: impl SurfaceSource) -> Self {
         let instance = wgpu::Instance::default();
-        let owner = source.init(&instance, todo!(), todo!(), todo!(), todo!());
+        let owner = source.create_surface_context(&instance, todo!(), todo!(), todo!(), todo!());
         let surface = owner.create_wgpu_surface(&instance);
         let (init_w, init_h) = owner.initial_size();
 

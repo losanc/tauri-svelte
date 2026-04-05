@@ -18,7 +18,7 @@ use crate::{SurfaceContext, SurfaceSource};
 pub mod web;
 
 impl<T: raw_window_handle::HasWindowHandle> SurfaceSource for T {
-    fn init(
+    fn create_surface_context(
         self,
         instance: &wgpu::Instance,
         width: u32,
@@ -39,7 +39,7 @@ impl<T: raw_window_handle::HasWindowHandle> SurfaceSource for T {
                 Arc::new(windows_context)
             }
             _ => {
-                unimplemented!()
+                panic!("unsupported platform");
             }
         }
     }
