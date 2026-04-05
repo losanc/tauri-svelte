@@ -1,5 +1,9 @@
-use crate::platform::surface_context::{CursorContext, SurfaceContext, SurfaceSource};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use std::num::NonZeroIsize;
+use std::sync::Arc;
+
+use crate::SurfaceContext;
+use crate::platform::surface_context::CursorContext;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle, Win32WindowHandle};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -18,6 +22,8 @@ pub struct WindowsContext {
     hwnd: HWND,
     width: u32,
     height: u32,
+    x: u32,
+    y: u32,
 }
 
 unsafe impl Send for WindowsContext {}
@@ -33,13 +39,10 @@ impl WindowsContext {
     ///
     /// # Panics
     /// Panics if the window handle is not a Win32 handle or if `CreateWindowExW` fails.
-    pub fn new(window: &impl HasWindowHandle, width: u32, height: u32, x: u32, y: u32) -> Self {
-        let handle = window.window_handle().unwrap();
-        let RawWindowHandle::Win32(h) = handle.as_raw() else {
-            panic!("expected Win32 handle");
-        };
+    pub fn new(hwnd: NonZeroIsize, width: u32, height: u32, x: u32, y: u32) -> Self {
+        // pub fn new(window: &impl HasWindowHandle, width: u32, height: u32, x: u32, y: u32) -> Self {
 
-        let parent_hwnd = HWND(h.hwnd.get() as *mut std::ffi::c_void);
+        let parent_hwnd = HWND(hwnd.get() as *mut std::ffi::c_void);
 
         // A null class name re-uses the parent's WNDCLASS which is sufficient for
         // a child surface that only serves as a wgpu render target.
@@ -65,36 +68,9 @@ impl WindowsContext {
             hwnd,
             width,
             height,
+            x,
+            y,
         }
-    }
-}
-
-impl SurfaceSource for WindowsContext {
-    type Context = WindowsContext;
-
-    /// Create a wgpu surface from the child `HWND`.
-    ///
-    /// # Safety
-    /// The `Surface<'static>` lifetime is obtained via `transmute`. `GpuContext`'s
-    /// field ordering ensures the surface drops before `WindowsContext`, keeping
-    /// the `HWND` valid for the surface's entire lifetime.
-    fn create(self, instance: &wgpu::Instance) -> (WindowsContext, wgpu::Surface<'static>) {
-        let hinstance =
-            unsafe { GetModuleHandleW(None).expect("GetModuleHandleW failed").0 as isize };
-        let hwnd_isize = self.hwnd.0 as isize;
-
-        let target = wgpu::SurfaceTargetUnsafe::Win32 {
-            hinstance: Some(hinstance as *mut std::ffi::c_void),
-            hwnd: hwnd_isize as *mut std::ffi::c_void,
-        };
-
-        let surface = unsafe {
-            instance
-                .create_surface_unsafe(target)
-                .expect("failed to create Win32 wgpu surface")
-        };
-        let surface: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
-        (self, surface)
     }
 }
 
@@ -132,6 +108,22 @@ impl SurfaceContext for WindowsContext {
             );
             let _ = ShowWindow(self.hwnd, SW_SHOW);
         }
+    }
+
+    fn create_wgpu_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface<'static> {
+        let target: wgpu::SurfaceTargetUnsafe = wgpu::SurfaceTargetUnsafe::RawHandle {
+            raw_display_handle: Option::None,
+            raw_window_handle: RawWindowHandle::Win32(Win32WindowHandle::new(
+                NonZeroIsize::new(self.hwnd.0 as isize).expect("windows handle is nullptr"),
+            )),
+        };
+        let surface = unsafe {
+            instance
+                .create_surface_unsafe(target)
+                .expect("failed to create Win32 wgpu surface")
+        };
+        let surface: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
+        surface
     }
 }
 

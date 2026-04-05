@@ -1,5 +1,5 @@
 pub mod platform;
-pub use platform::surface_context::{CursorContext, SurfaceContext, SurfaceSource};
+pub use platform::surface_context::CursorContext;
 
 #[cfg(target_os = "macos")]
 pub use platform::{pop_cursor, push_cursor};
@@ -9,21 +9,42 @@ use std::sync::Arc;
 mod log;
 use wgpu::{Device, Queue, Surface, TextureFormat};
 
-/// Shared GPU surface interface, mirroring the TypeScript `GpuSurface`.
-///
-/// Both backends implement this trait:
-/// - **Native (Tauri):** driven by the `set_surface_rect` / `render_surface` IPC commands.
-/// - **WASM:** implemented by `WasmRenderer` on an `HtmlCanvasElement`.
-pub trait GpuSurface {
-    /// Update the surface position and size.
-    ///
-    /// `x` and `y` are screen-space CSS pixel coordinates (top-left origin).
-    /// WASM ignores position and uses canvas intrinsic sizing; native uses all four values.
-    /// `width` and `height` drive the underlying surface reconfiguration.
-    fn set_rect(&self, x: f64, y: f64, width: f64, height: f64);
+pub trait SurfaceContext: Send + Sync {
+    fn create_wgpu_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface<'static>;
 
-    /// Submit one rendered frame to the surface.
-    fn render(&self);
+    /// Returns the initial surface size in physical pixels `(width, height)`.
+    fn initial_size(&self) -> (u32, u32);
+
+    /// Hide the surface.
+    ///
+    /// Must be called on the main thread.
+    fn hide(&self);
+
+    /// Reposition and resize the surface within its parent window.
+    ///
+    /// - `x`, `y` — panel position in logical (CSS) pixels, top-left origin.
+    /// - `width`, `height` — panel size in logical pixels.
+    /// - `window_height` — logical height of the window's inner content area.
+    ///
+    /// Must be called on the main thread.
+    fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64);
+}
+
+/// Consumes a platform resource to produce a [`SurfaceContext`] and a wgpu [`Surface`](wgpu::Surface).
+///
+/// The returned `Surface<'static>` is obtained via an `unsafe` lifetime transmute;
+/// the [`GpuContext`](crate::GpuContext) field ordering guarantees the surface is
+/// dropped before the owning context.
+pub trait SurfaceSource {
+    /// Create a [`SurfaceContext`] and a wgpu surface from this source.
+    fn init(
+        self,
+        instance: &wgpu::Instance,
+        width: u32,
+        height: u32,
+        x: u32,
+        y: u32,
+    ) -> Arc<dyn SurfaceContext>;
 }
 
 /// Owns the wgpu device, queue, and surface for a single rendering target.
@@ -49,9 +70,9 @@ impl GpuContext {
     /// Uses `PresentMode::Fifo` (vsync) and `CompositeAlphaMode::Auto`.
     pub async fn init_wgpu(source: impl SurfaceSource) -> Self {
         let instance = wgpu::Instance::default();
-        let (context, surface) = source.create(&instance);
-        let (init_w, init_h) = context.initial_size();
-        let owner: Arc<dyn SurfaceContext> = Arc::new(context);
+        let owner = source.init(&instance, todo!(), todo!(), todo!(), todo!());
+        let surface = owner.create_wgpu_surface(&instance);
+        let (init_w, init_h) = owner.initial_size();
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
@@ -134,38 +155,6 @@ impl GpuContext {
     pub fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
         self.owner.update_frame(x, y, width, height, window_height);
     }
-}
-
-/// Create a platform-native wgpu surface for the given window handle.
-///
-/// Must be called on the main thread.
-#[cfg(target_os = "macos")]
-pub fn create_surface(
-    window: &impl raw_window_handle::HasWindowHandle,
-    width: u32,
-    height: u32,
-    x: u32,
-    y: u32,
-) -> Result<impl SurfaceSource, &'static str> {
-    Ok(platform::macos::MacOSContext::new(
-        window, width, height, x, y,
-    ))
-}
-
-/// Create a platform-native wgpu surface for the given window handle on Windows.
-///
-/// Must be called on the main thread.
-#[cfg(target_os = "windows")]
-pub fn create_surface(
-    window: &impl raw_window_handle::HasWindowHandle,
-    width: u32,
-    height: u32,
-    x: u32,
-    y: u32,
-) -> Result<impl SurfaceSource, &'static str> {
-    Ok(platform::windows::WindowsContext::new(
-        window, width, height, x, y,
-    ))
 }
 
 // Uninhabited stub so `create_surface` compiles on unsupported native platforms.
@@ -324,4 +313,23 @@ mod tests {
     fn resize_guard_passes_for_nonzero_dimensions() {
         assert!(!(1u32 == 0 || 1u32 == 0));
     }
+}
+
+/// Shared GPU surface interface, mirroring the TypeScript `GpuSurface`.
+///
+/// Both backends implement this trait:
+/// - **Native (Tauri):** driven by the `set_surface_rect` / `render_surface` IPC commands.
+/// - **WASM:** implemented by `WasmRenderer` on an `HtmlCanvasElement`.
+pub trait GpuSurface {
+    fn create_wgpu_surface(&self) -> wgpu::Surface<'static>;
+
+    /// Update the surface position and size.
+    ///
+    /// `x` and `y` are screen-space CSS pixel coordinates (top-left origin).
+    /// WASM ignores position and uses canvas intrinsic sizing; native uses all four values.
+    /// `width` and `height` drive the underlying surface reconfiguration.
+    fn set_rect(&self, x: f64, y: f64, width: f64, height: f64);
+
+    /// Submit one rendered frame to the surface.
+    fn render(&self);
 }
