@@ -30,17 +30,7 @@ fn init_surface(
         .map_err(|e| format!("{e:?}"))?;
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        app.run_on_main_thread(move || {
-            let tauri_surface = native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
-            let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
-            map.lock().unwrap().insert(label, renderer);
-        })
-        .map_err(|e| format!("{e:?}"))?;
-    }
-
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[cfg(not(target_os = "macos"))]
     {
         let _ = (app, window, map, label);
         return Err("platform not supported".into());
