@@ -13,7 +13,8 @@ export class FileBrowserPanel {
 
   constructor() {
     this.element = document.createElement('div');
-    this.element.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;';
+    this.element.style.cssText =
+      'width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;';
   }
 
   init(_params: GroupPanelPartInitParameters): void {

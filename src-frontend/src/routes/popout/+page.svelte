@@ -10,7 +10,7 @@
     const handle = initPopoutDockview(container, {
       createComponent({ name }) {
         if (name === 'simple') return new SimplePanel();
-        if (name === 'wgpu')   return new WgpuPanel();
+        if (name === 'wgpu') return new WgpuPanel();
         throw new Error(`Unknown component: ${name}`);
       },
     });

@@ -37,9 +37,9 @@
   async function selectEntry(colIndex: number, entryPath: string): Promise<void> {
     // Update selection and show loading column to the right
     columns = [
-      ...columns.slice(0, colIndex + 1).map((col, i) =>
-        i === colIndex ? { ...col, selectedPath: entryPath } : col
-      ),
+      ...columns
+        .slice(0, colIndex + 1)
+        .map((col, i) => (i === colIndex ? { ...col, selectedPath: entryPath } : col)),
       { path: entryPath, entries: [], selectedPath: null, loading: true },
     ];
     focusedColumn = colIndex;

@@ -15,7 +15,6 @@ def run(cmd: list[str], *, check: bool = True, capture: bool = False) -> subproc
     print(f"  » {' '.join(cmd)}")
     return subprocess.run(cmd, check=check, capture_output=capture, text=True)
 
-
 def git(*args: str, capture: bool = False) -> subprocess.CompletedProcess:
     return run(["git", *args], capture=capture)
 
@@ -59,6 +58,7 @@ def cmd_run_fmt(args):
     print(f"\n[tag:fmt] branch={branch}")
     run(["pnpm", "format"], check=False)
     run(["cargo", "fmt", "--all"], check=False)
+
 
 # ── CLI ─────────────────────────────────────────────────────────────────
 COMMANDS = {

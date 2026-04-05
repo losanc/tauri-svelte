@@ -21,7 +21,9 @@ export function useFileDrop() {
   }
 
   return {
-    get files() { return files; },
+    get files() {
+      return files;
+    },
     onDragOver,
     onDrop,
   };

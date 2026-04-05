@@ -17,10 +17,14 @@
     handle = initDockview(container, {
       createComponent({ name }) {
         switch (name) {
-          case 'simple':      return new SimplePanel();
-          case 'wgpu':        return new WgpuPanel();
-          case 'filebrowser': return new FileBrowserPanel();
-          default:            throw new Error(`Unknown component: ${name}`);
+          case 'simple':
+            return new SimplePanel();
+          case 'wgpu':
+            return new WgpuPanel();
+          case 'filebrowser':
+            return new FileBrowserPanel();
+          default:
+            throw new Error(`Unknown component: ${name}`);
         }
       },
       initialPanels,
@@ -44,8 +48,13 @@
   }
 </script>
 
-<div class="app-layout" role="region" aria-label="Main layout"
-     ondragover={fileDrop.onDragOver} ondrop={fileDrop.onDrop}>
+<div
+  class="app-layout"
+  role="region"
+  aria-label="Main layout"
+  ondragover={fileDrop.onDragOver}
+  ondrop={fileDrop.onDrop}
+>
   <AppHeader droppedFiles={fileDrop.files} onAddPanel={addPanel} />
   <div class="app-dock-container" bind:this={container}></div>
 </div>
