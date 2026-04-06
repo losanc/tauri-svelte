@@ -1,4 +1,5 @@
-use crate::platform::surface_context::{CursorContext, SurfaceContext, SurfaceSource};
+use crate::platform::surface_context::CursorContext;
+use crate::SurfaceContext;
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSView;
@@ -84,17 +85,8 @@ impl MacOSContext {
     }
 }
 
-impl SurfaceSource for MacOSContext {
-    type Context = MacOSContext;
-
-    /// Create a wgpu surface from the `CAMetalLayer` and return the context alongside it.
-    ///
-    /// # Safety
-    ///
-    /// The `Surface<'static>` lifetime is obtained via `transmute`. The [`GpuContext`](crate::GpuContext)
-    /// field ordering ensures the surface is dropped before `MacOSContext`, keeping the
-    /// raw pointer valid for the surface's entire lifetime.
-    fn create(self, instance: &wgpu::Instance) -> (MacOSContext, wgpu::Surface<'static>) {
+impl SurfaceContext for MacOSContext {
+    fn create_wgpu_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface<'static> {
         let target = self.surface_target();
         let surface = unsafe {
             instance
@@ -103,11 +95,8 @@ impl SurfaceSource for MacOSContext {
         };
 
         let surface_ctx: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
-        (self, surface_ctx)
+        surface_ctx
     }
-}
-
-impl SurfaceContext for MacOSContext {
     /// Returns the current `NSView` frame size in physical pixels.
     fn initial_size(&self) -> (u32, u32) {
         let frame = self.view.frame();

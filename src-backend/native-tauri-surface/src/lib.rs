@@ -70,7 +70,7 @@ impl GpuContext {
     /// Uses `PresentMode::Fifo` (vsync) and `CompositeAlphaMode::Auto`.
     pub async fn init_wgpu(source: impl SurfaceSource) -> Self {
         let instance = wgpu::Instance::default();
-        let owner = source.create_surface_context(&instance, todo!(), todo!(), todo!(), todo!());
+        let owner = source.create_surface_context(&instance, 1, 1, 0, 0);
         let surface = owner.create_wgpu_surface(&instance);
         let (init_w, init_h) = owner.initial_size();
 

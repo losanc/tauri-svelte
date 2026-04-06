@@ -23,8 +23,7 @@ fn init_surface(
     #[cfg(target_os = "macos")]
     {
         app.run_on_main_thread(move || {
-            let tauri_surface = native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
-            let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
+            let renderer = Arc::new(pollster::block_on(Renderer::new(window)));
             map.lock().unwrap().insert(label, renderer);
         })
         .map_err(|e| format!("{e:?}"))?;
