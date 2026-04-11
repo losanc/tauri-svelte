@@ -109,6 +109,7 @@ export class WgpuPanel {
         lastRect = { x: r.x, y: top, w: r.width, h: r.height };
         this.surface!.setRect(r.x, top, r.width, r.height);
       }
+
       if (r.width > 0 && r.height > 0) {
         this.surface!.render();
       }

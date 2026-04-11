@@ -49,64 +49,85 @@ export class GroupHeaderActions {
 
     const popoutBtn = mkBtn('Open in new window', SVG_POPOUT, async () => {
       if (isTauri) {
-        const panels = (params.group.panels as any[]).map((p: any) => ({
-          id: p.id,
-          component: p.toJSON().contentComponent ?? 'simple',
-          title: p.title,
-          params: p.params ?? {},
-        }));
-        if (!panels.length) return;
+        // const panels = (params.group.panels as any[]).map((p: any) => ({
+        //   id: p.id,
+        //   component: p.toJSON().contentComponent ?? 'simple',
+        //   title: p.title,
+        //   params: p.params ?? {},
+        // }));
+        // if (!panels.length) return;
 
-        const key = `popout-${Date.now()}`;
-        localStorage.setItem(key, JSON.stringify(panels));
+        // const key = `popout-${Date.now()}`;
+        // localStorage.setItem(key, JSON.stringify(panels));
 
-        const layoutSnapshot = containerApi.toJSON();
+        // const layoutSnapshot = containerApi.toJSON();
 
-        panels.forEach((p) => {
-          const panel = containerApi.getPanel(p.id);
-          if (panel) containerApi.removePanel(panel);
-        });
+        // panels.forEach((p) => {
+        //   const panel = containerApi.getPanel(p.id);
+        //   if (panel) containerApi.removePanel(panel);
+        // });
 
-        const restore = () => {
-          localStorage.removeItem(key);
-          containerApi.fromJSON(layoutSnapshot);
-        };
+        // const restore = () => {
+        //   localStorage.removeItem(key);
+        //   containerApi.fromJSON(layoutSnapshot);
+        // };
 
         const { invoke } = await import('@tauri-apps/api/core');
         const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
 
-        try {
-          await invoke('create_popout_window', {
-            label: key,
-            url: `/popout?key=${key}`,
-            title: panels[0]?.title ?? 'Panel',
-            width: 800,
-            height: 600,
-          });
-        } catch (err) {
-          console.error('[popout] window creation failed:', err);
-          restore();
-          return;
-        }
-
-        const win = await WebviewWindow.getByLabel(key);
-        let skipRestore = false;
-        let unlistenMoveClose: (() => void) | null = null;
-        try {
-          const { listen } = await import('@tauri-apps/api/event');
-          unlistenMoveClose = await listen<{ label: string }>(
-            'dockview:closing-due-to-move',
-            ({ payload }) => {
-              if (payload.label === key) skipRestore = true;
-            }
-          );
-        } catch {
-          /* event plugin unavailable */
-        }
-        win?.once('tauri://destroyed', () => {
-          unlistenMoveClose?.();
-          if (!skipRestore) restore();
+        // try {
+        //   await invoke('create_popout_window', {
+        //     label: key,
+        //     url: `/popout?key=${key}`,
+        //     title: panels[0]?.title ?? 'Panel',
+        //     width: 800,
+        //     height: 600,
+        //   });
+        // } catch (err) {
+        //   console.error('[popout] window creation failed:', err);
+        //   restore();
+        //   return;
+        // }
+        //
+        // try {
+        //   invoke('create_popout_window', {
+        //     label: 'key',
+        //     url: `/popout`,
+        //     title: 'panel',
+        //     width: 800,
+        //     height: 600,
+        //   });
+        // } catch (err) {
+        //   console.error('[popout] window creation failed:', err);
+        //   // restore();
+        //   return;
+        // }
+        //
+        const win = new WebviewWindow('settings', {
+          url: 'settings.html',
+          title: 'Settings',
+          width: 800,
+          height: 600,
         });
+
+        // const win = await WebviewWindow.getByLabel(key);
+        // let skipRestore = false;
+        // let unlistenMoveClose: (() => void) | null = null;
+        // try {
+        //   const { listen } = await import('@tauri-apps/api/event');
+        //   unlistenMoveClose = await listen<{ label: string }>(
+        //     'dockview:closing-due-to-move',
+        //     ({ payload }) => {
+        //       if (payload.label === key) skipRestore = true;
+        //     }
+        //   );
+        // } catch {
+        //   /* event plugin unavailable */
+        // }
+        // win?.once('tauri://destroyed', () => {
+        //   unlistenMoveClose?.();
+        //   if (!skipRestore) restore();
+        // });
       } else {
         // Browser: use dockview's built-in popout (injects into window.open)
         containerApi.addPopoutGroup(params.group, { popoutUrl: '/popout' });

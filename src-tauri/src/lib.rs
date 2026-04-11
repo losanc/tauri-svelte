@@ -14,12 +14,13 @@ fn init_surface(
     window: tauri::WebviewWindow,
     surfaces: tauri::State<'_, SurfaceMap>,
 ) -> Result<(), String> {
+    return Ok(());
     let label = window.label().to_string();
     if surfaces.lock().unwrap().contains_key(&label) {
         return Ok(());
     }
     let map = Arc::clone(&surfaces);
-
+    println!("???");
     #[cfg(target_os = "macos")]
     {
         app.run_on_main_thread(move || {
@@ -31,9 +32,13 @@ fn init_surface(
 
     #[cfg(target_os = "windows")]
     {
+        let window = window.clone();
         app.run_on_main_thread(move || {
-            let tauri_surface = native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
-            let renderer = Arc::new(pollster::block_on(Renderer::new(tauri_surface)));
+            use native_tauri_surface::SurfaceSource;
+
+            // let tauri_surface = window.create_surface_context(instance, width, height, x, y)
+            // native_tauri_surface::create_surface(&window, 1, 1, 0, 0).unwrap();
+            let renderer = Arc::new(pollster::block_on(Renderer::new(window, 0, 0, 300, 300)));
             map.lock().unwrap().insert(label, renderer);
         })
         .map_err(|e| format!("{e:?}"))?;
@@ -86,6 +91,8 @@ fn set_surface_rect(
 
 #[tauri::command]
 fn render_surface(window: tauri::WebviewWindow, surfaces: tauri::State<'_, SurfaceMap>) {
+    return ();
+
     let renderer = surfaces
         .lock()
         .ok()
@@ -101,6 +108,8 @@ fn render_surface(window: tauri::WebviewWindow, surfaces: tauri::State<'_, Surfa
 /// WKWebView thinks the CSS cursor should be.
 #[tauri::command]
 fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), String> {
+    return Ok(());
+
     app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]
         native_tauri_surface::push_cursor(if horizontal { "ew-resize" } else { "ns-resize" });
@@ -111,6 +120,8 @@ fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), Str
 /// Pop the top cursor from the macOS cursor stack.
 #[tauri::command]
 fn pop_resize_cursor(app: tauri::AppHandle) -> Result<(), String> {
+    return Ok(());
+
     app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]
         native_tauri_surface::pop_cursor();
@@ -124,7 +135,7 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn create_popout_window(
+async fn create_popout_window(
     app: tauri::AppHandle,
     label: String,
     url: String,

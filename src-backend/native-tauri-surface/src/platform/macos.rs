@@ -1,5 +1,5 @@
-use crate::platform::surface_context::CursorContext;
 use crate::SurfaceContext;
+use crate::platform::surface_context::CursorContext;
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSView;
