@@ -1,20 +1,33 @@
-use crate::SurfaceContext;
 use crate::platform::surface_context::CursorContext;
+use crate::{NativeSurfaceContext, SurfaceContext, WgpuSurfaceContext};
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSView;
 use objc2_quartz_core::CAMetalLayer;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use wgpu::Instance;
 
-/// macOS GPU surface backed by an `NSView` and a `CAMetalLayer`.
+/// macOS GPU surface backed by an `NSView` subview with a `CAMetalLayer`.
 ///
-/// Holds `Retained` references to both the view and the Metal layer so they stay
-/// alive as long as the context does.  `Send + Sync` is asserted manually because
-/// `Retained<NSView>` is not automatically `Send`; callers must ensure all AppKit
-/// operations happen on the main thread.
+/// A new `NSView` is created inside the Tauri window's content view and given a
+/// `CAMetalLayer` as its backing layer. wgpu renders to that layer via a Metal surface.
+///
+/// # Drop Order — Safety
+///
+/// `wgpu_surface` is declared first so it drops before `view` and `layer`. The Metal
+/// surface holds a raw pointer into the `CAMetalLayer`; the layer must outlive the
+/// surface. Rust drops fields top-to-bottom, so this ordering is **critical**.
+/// Do not reorder the fields.
+///
+/// # Thread Safety
+///
+/// `Send + Sync` are asserted manually because `Retained<NSView>` is not automatically
+/// `Send`. All AppKit operations (`setFrame`, `setHidden`) must happen on the main thread.
 #[cfg(target_os = "macos")]
 pub struct MacOSContext {
+    wgpu_surface: wgpu::Surface<'static>,
     view: Retained<NSView>,
+    #[allow(dead_code)]
     layer: Retained<CAMetalLayer>,
 }
 
@@ -25,26 +38,20 @@ impl MacOSContext {
     /// Create a Metal-backed `NSView` subview inside the given Tauri window.
     ///
     /// Allocates a new `NSView` at the specified position, attaches a `CAMetalLayer`,
-    /// and adds it as a subview of the window's content view. Pass the returned
-    /// `MacOSContext` to [`GpuContext::init_wgpu`](crate::GpuContext::init_wgpu)
-    /// via the [`SurfaceSource`] impl to obtain a fully configured wgpu surface.
-    ///
-    /// # Parameters
-    ///
-    /// - `window` — any type that provides a raw window handle (e.g. `tauri::WebviewWindow`).
-    /// - `width`, `height` — initial surface size in physical pixels.
-    /// - `position_x`, `position_y` — initial position within the window in physical pixels.
-    ///
-    /// # Panics
-    ///
+    /// adds it as a subview of the window's content view, and creates the wgpu Metal
+    /// surface from the layer.
+
     /// Panics if the window handle is not an AppKit handle, or if the NSView / window
     /// hierarchy cannot be retrieved.
+    ///
+    /// Must be called on the main thread.
     pub fn new(
+        instance: &Instance,
         window: &impl HasWindowHandle,
         width: u32,
         height: u32,
-        position_x: u32,
-        position_y: u32,
+        x: u32,
+        y: u32,
     ) -> Self {
         use objc2::runtime::AnyObject;
         use objc2::{MainThreadMarker, MainThreadOnly};
@@ -62,7 +69,7 @@ impl MacOSContext {
         let content_view = window.contentView().expect("no content view");
 
         let metal_rect = NSRect::new(
-            NSPoint::new(position_x as f64, position_y as f64),
+            NSPoint::new(x as f64, y as f64),
             NSSize::new(width as f64, height as f64),
         );
         let mtm = MainThreadMarker::new().expect("must be on main thread");
@@ -72,74 +79,68 @@ impl MacOSContext {
         metal_view.setLayer(Some(&metal_layer));
         content_view.addSubview(&metal_view);
 
+        // Create the wgpu Metal surface from the CAMetalLayer raw pointer.
+        // SAFETY: `metal_layer` is held by `metal_view` which is retained below, so the
+        // layer pointer remains valid for the lifetime of this struct.
+        let layer_ptr = Retained::as_ptr(&metal_layer) as *mut std::ffi::c_void;
+        let target = wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(layer_ptr);
+        let surface = unsafe {
+            instance
+                .create_surface_unsafe(target)
+                .expect("failed to create Metal surface")
+        };
+        // SAFETY: `metal_layer` (and the raw pointer the surface holds) lives as long
+        // as `MacOSContext` because `layer` is a field declared after `wgpu_surface`.
+        let wgpu_surface: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
+
         Self {
+            wgpu_surface,
             view: metal_view,
             layer: metal_layer,
         }
     }
+}
 
-    /// Exposes the raw CAMetalLayer pointer for wgpu surface creation.
-    pub fn surface_target(&self) -> wgpu::SurfaceTargetUnsafe {
-        let layer_ptr = Retained::as_ptr(&self.layer) as *mut std::ffi::c_void;
-        wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(layer_ptr)
+impl WgpuSurfaceContext for MacOSContext {
+    fn get_wgpu_surface(&self) -> &wgpu::Surface<'static> {
+        &self.wgpu_surface
     }
 }
 
-impl SurfaceContext for MacOSContext {
-    fn create_wgpu_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface<'static> {
-        let target = self.surface_target();
-        let surface = unsafe {
-            instance
-                .create_surface_unsafe(target)
-                .expect("failed to create surface")
-        };
-
-        let surface_ctx: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
-        surface_ctx
-    }
-    /// Returns the current `NSView` frame size in physical pixels.
-    fn initial_size(&self) -> (u32, u32) {
-        let frame = self.view.frame();
-        (frame.size.width as u32, frame.size.height as u32)
-    }
-
-    /// Hide the Metal layer by setting the NSView hidden flag.
-    ///
-    /// Call this when the panel has zero size or is not visible.
-    ///
-    /// # Safety
-    ///
-    /// Must be called on the main thread.
-    fn hide(&self) {
+impl NativeSurfaceContext for MacOSContext {
+    /// Hide the Metal NSView.
+    fn hide_window(&self) {
         self.view.setHidden(true);
     }
 
-    /// Reposition and resize the Metal NSView within its parent window.
+    /// Returns the live NSView frame as `(width, height, x, y)` in physical pixels.
     ///
-    /// Converts from CSS pixel coordinates (top-left origin, `y` increasing downward)
-    /// to AppKit coordinates (bottom-left origin, `y` increasing upward) using
-    /// `window_height`.
-    ///
-    /// # Parameters
-    ///
-    /// - `x`, `y` — panel position in logical (CSS) pixels, top-left origin.
-    /// - `width`, `height` — panel size in logical pixels.
-    /// - `window_height` — logical height of the window's inner content area,
-    ///   used to flip the y-axis for AppKit.
-    ///
-    /// # Safety
-    ///
+    /// Reads directly from the NSView, so it reflects the most recent `setFrame` call.
+    /// Note: AppKit y-coordinates (bottom-left origin) are returned as-is.
+    fn current_window_size_and_position(&self) -> (u32, u32, u32, u32) {
+        let frame = self.view.frame();
+        (
+            frame.size.width as u32,
+            frame.size.height as u32,
+            frame.origin.x as u32,
+            frame.origin.y as u32,
+        )
+    }
+
+    /// Reposition and resize the Metal NSView, then make it visible.
     /// Must be called on the main thread.
-    fn update_frame(&self, x: f64, y: f64, width: f64, height: f64, window_height: f64) {
+    fn move_window_size_and_position(&self, x: u32, y: u32, width: u32, height: u32, window_height: u32) {
         use objc2_foundation::{NSPoint, NSRect, NSSize};
-        let mac_y = css_y_to_appkit(y, height, window_height);
+        let mac_y = css_y_to_appkit(y as f64, height as f64, window_height as f64);
         self.view.setFrame(NSRect::new(
-            NSPoint::new(x, mac_y),
-            NSSize::new(width, height),
+            NSPoint::new(x as f64, mac_y),
+            NSSize::new(width as f64, height as f64),
         ));
         self.view.setHidden(false);
     }
 }
+
+impl SurfaceContext for MacOSContext {}
 
 impl CursorContext for MacOSContext {
     fn push_cursor(&self, cursor: &str) {

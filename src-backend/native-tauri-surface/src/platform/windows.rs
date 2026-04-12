@@ -117,7 +117,7 @@ impl NativeSurfaceContext for WindowsContext {
     ///
     /// # Safety
     /// Must be called on the main thread.
-    fn move_window_size_and_position(&self, x: u32, y: u32, width: u32, height: u32) {
+    fn move_window_size_and_position(&self, x: u32, y: u32, width: u32, height: u32, _window_height: u32) {
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,

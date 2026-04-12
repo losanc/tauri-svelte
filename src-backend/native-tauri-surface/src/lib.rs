@@ -8,7 +8,7 @@ use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, Text
 pub trait NativeSurfaceContext {
     fn hide_window(&self);
     fn current_window_size_and_position(&self) -> (u32, u32, u32, u32);
-    fn move_window_size_and_position(&self, width: u32, height: u32, x: u32, y: u32);
+    fn move_window_size_and_position(&self, x: u32, y: u32, width: u32, height: u32, window_height: u32);
 }
 
 pub trait WgpuSurfaceContext {
@@ -102,7 +102,7 @@ impl GpuContext {
     #[must_use]
     pub async fn init() -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::DX12,
+            backends: wgpu::Backends::PRIMARY, // Metal on macOS, DX12 on Windows, Vulkan on Linux
             flags: wgpu::InstanceFlags::default(),
             memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
             backend_options: wgpu::BackendOptions::default(),
