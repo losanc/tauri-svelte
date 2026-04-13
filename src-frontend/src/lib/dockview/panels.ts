@@ -1,4 +1,5 @@
 import type { GroupPanelPartInitParameters } from 'dockview-core';
+
 import { invoke } from '@tauri-apps/api/core';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -76,6 +77,57 @@ function tabBarHeight(el: HTMLElement): number {
   return 0;
 }
 
+function addNativeWgpuPanel() {}
+export class NativeWgpuPanel {
+  readonly element: HTMLElement;
+  surface_hash: String;
+  constructor() {
+    this.element = document.createElement('div');
+    this.element.style.cssText = 'width:100%;height:100%;position:relative;background:transparent;';
+    this.surface_hash = '';
+  }
+
+  async init(params: GroupPanelPartInitParameters) {
+    if (!isTauri) {
+      return;
+    }
+  }
+  async move_surface(width: number, height: number, x: number, y: number) {
+    await invoke('move_wgpu_native_surface', {
+      hash: this.surface_hash,
+      width: width,
+      height: height,
+      x: x,
+      y: y,
+    });
+  }
+  async create_native_wgpu_surface(width: number, height: number, x: number, y: number) {
+    this.surface_hash = await invoke('add_wgpu_native_surface', {
+      width: width,
+      height: height,
+      x: x,
+      y: y,
+    });
+    console.log('receivend hash from js', this.surface_hash);
+  }
+
+  async display() {
+    await invoke('display_wgpu_native_surface', {
+      hash: this.surface_hash,
+    });
+  }
+  async hide() {
+    await invoke('hide_wgpu_native_surface', {
+      hash: this.surface_hash,
+    });
+  }
+
+  dispose() {
+    invoke('destroy_wgpu_native_surface', {
+      hash: this.surface_hash,
+    });
+  }
+}
 export class WgpuPanel {
   readonly element: HTMLElement;
   private rafId: number | null = null;

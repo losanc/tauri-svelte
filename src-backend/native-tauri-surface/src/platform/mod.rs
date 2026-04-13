@@ -29,17 +29,15 @@ impl<T: raw_window_handle::HasWindowHandle> SurfaceSource for T {
         height: u32,
         x: u32,
         y: u32,
-    ) -> Arc<dyn SurfaceContext> {
-        use std::sync::Arc;
-
+    ) -> Box<dyn SurfaceContext> {
         let raw_handle = self.window_handle().unwrap();
         match raw_handle.as_raw() {
             #[cfg(target_os = "macos")]
             raw_window_handle::RawWindowHandle::AppKit(app_kit_window_handle) => {
-                Arc::new(MacOSContext::new(&self, width, height, x, y))
+                Box::new(MacOSContext::new(&self, width, height, x, y))
             }
             #[cfg(target_os = "windows")]
-            raw_window_handle::RawWindowHandle::Win32(win32_window_handle) => Arc::new(
+            raw_window_handle::RawWindowHandle::Win32(win32_window_handle) => Box::new(
                 WindowsContext::new(instace, win32_window_handle.hwnd, width, height, x, y),
             ),
             _ => {

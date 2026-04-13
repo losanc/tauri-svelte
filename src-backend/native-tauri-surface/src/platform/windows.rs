@@ -1,12 +1,14 @@
 use crate::platform::surface_context::CursorContext;
 use crate::{NativeSurfaceContext, SurfaceContext, WgpuSurfaceContext};
 use raw_window_handle::{RawWindowHandle, Win32WindowHandle, WindowsDisplayHandle};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroIsize;
 use wgpu::Instance;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    BringWindowToTop, CreateWindowExW, HWND_TOP, SW_HIDE, SW_SHOW, SWP_NOACTIVATE, SWP_NOZORDER,
-    SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
+    BringWindowToTop, CreateWindowExW, DestroyWindow, HWND_TOP, HWND_TOPMOST, SW_HIDE, SW_NORMAL,
+    SW_SHOW, SWP_NOACTIVATE, SWP_NOZORDER, SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD,
+    WS_VISIBLE,
 };
 
 /// Windows GPU surface backed by a Win32 child `HWND`.
@@ -28,6 +30,12 @@ pub struct WindowsContext {
 unsafe impl Send for WindowsContext {}
 unsafe impl Sync for WindowsContext {}
 
+impl Drop for WindowsContext {
+    fn drop(&mut self) {
+        unsafe { DestroyWindow(self.hwnd).expect("how is this even possible?") };
+    }
+}
+
 impl WindowsContext {
     /// Create a borderless child `HWND` inside the given Tauri window.
     ///
@@ -47,7 +55,7 @@ impl WindowsContext {
         y: u32,
     ) -> Self {
         let parent_hwnd = HWND(hwnd.get() as *mut std::ffi::c_void);
-
+        println!("windows call x {x}  y {y}  width {width} height {height}");
         // A null class name re-uses the parent's WNDCLASS which is sufficient for
         // a child surface that only serves as a wgpu render target.
         let child_hwnd = unsafe {
@@ -107,6 +115,12 @@ impl NativeSurfaceContext for WindowsContext {
         }
     }
 
+    fn show_window(&self) {
+        unsafe {
+            let _ = ShowWindow(self.hwnd, SW_NORMAL);
+        }
+    }
+
     fn current_window_size_and_position(&self) -> (u32, u32, u32, u32) {
         (self.width, self.height, self.x, self.y)
     }
@@ -117,18 +131,28 @@ impl NativeSurfaceContext for WindowsContext {
     ///
     /// # Safety
     /// Must be called on the main thread.
-    fn move_window_size_and_position(&self, x: u32, y: u32, width: u32, height: u32) {
-        unsafe {
-            let _ = SetWindowPos(
-                self.hwnd,
-                Some(HWND_TOP),
-                x as i32,
-                y as i32,
-                width as i32,
-                height as i32,
-                SWP_NOACTIVATE | SWP_NOZORDER,
+    fn move_window_size_and_position(&mut self, width: u32, height: u32, x: u32, y: u32) {
+        if x != self.x || y != self.y || width != self.width || height != self.height {
+            println!(
+                "actually moved window {x} {y} {width} {height} {} {} {} {}",
+                self.x, self.y, self.width, self.height
             );
-            let _ = ShowWindow(self.hwnd, SW_SHOW);
+            unsafe {
+                let _ = SetWindowPos(
+                    self.hwnd,
+                    Some(HWND_TOPMOST),
+                    x as i32,
+                    y as i32,
+                    width as i32,
+                    height as i32,
+                    SWP_NOZORDER,
+                );
+                let _ = ShowWindow(self.hwnd, SW_SHOW);
+            }
+            self.x = x;
+            self.y = y;
+            self.width = width;
+            self.height = height;
         }
     }
 }
@@ -139,7 +163,16 @@ impl WgpuSurfaceContext for WindowsContext {
     }
 }
 
-impl SurfaceContext for WindowsContext {}
+impl SurfaceContext for WindowsContext {
+    fn hash(&self) -> u64 {
+        let ptr = self.hwnd.0 as usize;
+        let mut hasher = DefaultHasher::new();
+        ptr.hash(&mut hasher);
+        let result = hasher.finish();
+        println!("created window hahs: {result}");
+        result
+    }
+}
 
 impl CursorContext for WindowsContext {
     /// No-op on Windows — cursor changes are handled via CSS `cursor` property in WebView2.

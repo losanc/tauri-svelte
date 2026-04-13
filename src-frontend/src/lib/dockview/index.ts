@@ -19,7 +19,7 @@
  */
 
 export { setupCrossWindowDnd } from './crossWindowDnd';
-export { WgpuPanel, SimplePanel } from './panels';
+export { WgpuPanel, SimplePanel, NativeWgpuPanel } from './panels';
 export { setupNativeCursor } from './nativeCursor';
 export { GroupHeaderActions } from './groupHeaderActions';
 export {

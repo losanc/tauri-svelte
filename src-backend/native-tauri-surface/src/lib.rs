@@ -1,14 +1,18 @@
 pub mod platform;
 pub use platform::surface_context::CursorContext;
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 mod log;
-use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
+use wgpu::{
+    Adapter, Device, Instance, Queue, Surface, SurfaceCapabilities, SurfaceConfiguration,
+    TextureFormat,
+};
 
 pub trait NativeSurfaceContext {
     fn hide_window(&self);
+    fn show_window(&self);
     fn current_window_size_and_position(&self) -> (u32, u32, u32, u32);
-    fn move_window_size_and_position(&self, width: u32, height: u32, x: u32, y: u32);
+    fn move_window_size_and_position(&mut self, width: u32, height: u32, x: u32, y: u32);
 }
 
 pub trait WgpuSurfaceContext {
@@ -20,6 +24,10 @@ pub trait WgpuSurfaceContext {
             .get_configuration()
             .expect("failed to get current configure");
         configure
+    }
+    fn get_capabilities(&self, adapter: &Adapter) -> SurfaceCapabilities {
+        let surface = self.get_wgpu_surface();
+        surface.get_capabilities(adapter)
     }
 
     fn current_format(&self) -> TextureFormat {
@@ -33,13 +41,7 @@ pub trait WgpuSurfaceContext {
         (configure.width, configure.height)
     }
 
-    fn change_render_resolution(
-        &self,
-        device: &Device,
-        adapter: &Adapter,
-        width: u32,
-        height: u32,
-    ) {
+    fn set_render_resolution(&self, device: &Device, adapter: &Adapter, width: u32, height: u32) {
         let surface = self.get_wgpu_surface();
         let caps = surface.get_capabilities(adapter);
         let format = caps
@@ -64,7 +66,9 @@ pub trait WgpuSurfaceContext {
     }
 }
 
-pub trait SurfaceContext: Send + Sync + WgpuSurfaceContext + NativeSurfaceContext {}
+pub trait SurfaceContext: Send + Sync + WgpuSurfaceContext + NativeSurfaceContext {
+    fn hash(&self) -> u64;
+}
 
 pub trait SurfaceSource {
     /// uses current window as parent window to create a subwindow
@@ -75,7 +79,7 @@ pub trait SurfaceSource {
         height: u32,
         x: u32,
         y: u32,
-    ) -> Arc<dyn SurfaceContext>;
+    ) -> Box<dyn SurfaceContext>;
 }
 
 /// Owns the wgpu device, queue, and surface for a single rendering target.
@@ -86,9 +90,9 @@ pub trait SurfaceSource {
 /// so the surface (which holds a raw pointer into `owner`'s native resources) is released
 /// before the native resources themselves. **Do not reorder these fields.**
 pub struct GpuContext {
-    surfaces: Vec<Arc<dyn SurfaceContext>>, // drops 2nd — frees native resources (NSView / CAMetalLayer)
-    device: Device,
+    surfaces: HashMap<u64, Box<dyn SurfaceContext>>, // drops 2nd — frees native resources (NSView / CAMetalLayer)
     queue: Queue,
+    device: Device,
     adapter: Adapter,
     instance: Instance, // pub format: TextureFormat,
 }
@@ -119,7 +123,7 @@ impl GpuContext {
             .expect("create device failed");
 
         Self {
-            surfaces: Vec::new(),
+            surfaces: HashMap::new(),
             device,
             queue,
             adapter,
@@ -134,14 +138,28 @@ impl GpuContext {
         height: u32,
         x: u32,
         y: u32,
-    ) {
+    ) -> u64 {
         let child_window = surface_source.create_child_surface(&self.instance, width, height, x, y);
-        child_window.change_render_resolution(&self.device, &self.adapter, width, height);
-        self.surfaces.push(child_window);
+        child_window.set_render_resolution(&self.device, &self.adapter, width, height);
+        let hash = child_window.hash();
+        self.surfaces.insert(hash, child_window);
+        hash
     }
 
-    pub fn surfaces(&self) -> &[Arc<dyn SurfaceContext + 'static>] {
-        &self.surfaces
+    pub fn move_surface(&mut self, hash: u64, width: u32, height: u32, x: u32, y: u32) {
+        if let Some(window) = self.surfaces.get_mut(&hash) {
+            window
+                .as_mut()
+                .move_window_size_and_position(width, height, x, y);
+            window
+                .as_mut()
+                .set_render_resolution(&self.device, &self.adapter, width, height);
+        }
+    }
+
+    pub fn remove_surface(&mut self, hash: u64) {
+        println!("destroied surface {hash}");
+        let _ = self.surfaces.remove(&hash);
     }
 
     pub fn device(&self) -> &Device {
@@ -159,21 +177,8 @@ impl GpuContext {
     pub fn instance(&self) -> &Instance {
         &self.instance
     }
-}
 
-/// Shared GPU surface interface, mirroring the TypeScript `GpuSurface`.
-///
-/// Both backends implement this trait:
-/// - **Native (Tauri):** driven by the `set_surface_rect` / `render_surface` IPC commands.
-/// - **WASM:** implemented by `WasmRenderer` on an `HtmlCanvasElement`.
-pub trait GpuSurface {
-    /// Update the surface position and size.
-    ///
-    /// `x` and `y` are screen-space CSS pixel coordinates (top-left origin).
-    /// WASM ignores position and uses canvas intrinsic sizing; native uses all four values.
-    /// `width` and `height` drive the underlying surface reconfiguration.
-    fn set_rect(&self, x: f64, y: f64, width: f64, height: f64);
-
-    /// Submit one rendered frame to the surface.
-    fn render(&self);
+    pub fn surfaces(&self) -> &HashMap<u64, Box<dyn SurfaceContext>> {
+        &self.surfaces
+    }
 }

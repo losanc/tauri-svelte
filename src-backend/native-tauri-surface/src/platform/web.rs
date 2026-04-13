@@ -46,8 +46,8 @@ impl SurfaceSource for HtmlCanvasElement {
         height: u32,
         x: u32,
         y: u32,
-    ) -> Arc<dyn SurfaceContext> {
-        Arc::new(WasmContext::new(self, instance))
+    ) -> Box<dyn SurfaceContext> {
+        Box::new(WasmContext::new(self, instance))
     }
 }
 
@@ -56,10 +56,18 @@ impl WgpuSurfaceContext for WasmContext {
         todo!()
     }
 }
-impl SurfaceContext for WasmContext {}
+impl SurfaceContext for WasmContext {
+    fn hash(&self) -> u64 {
+        10
+    }
+}
 
 impl NativeSurfaceContext for WasmContext {
     fn hide_window(&self) {
+        todo!()
+    }
+
+    fn show_window(&self) {
         todo!()
     }
 
@@ -67,7 +75,7 @@ impl NativeSurfaceContext for WasmContext {
         todo!()
     }
 
-    fn move_window_size_and_position(&self, width: u32, height: u32, x: u32, y: u32) {
+    fn move_window_size_and_position(&mut self, width: u32, height: u32, x: u32, y: u32) {
         todo!()
     }
     // /// Returns the canvas's intrinsic pixel size `(width, height)`.
