@@ -1,12 +1,15 @@
 pub mod platform;
 pub use platform::surface_context::CursorContext;
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 mod log;
 use wgpu::{
     Adapter, Device, Instance, Queue, Surface, SurfaceCapabilities, SurfaceConfiguration,
     TextureFormat,
 };
+
+pub mod surface_hash;
+pub use surface_hash::SurfaceHash;
 
 pub trait NativeSurfaceContext {
     fn hide_window(&self);
@@ -67,7 +70,7 @@ pub trait WgpuSurfaceContext {
 }
 
 pub trait SurfaceContext: Send + Sync + WgpuSurfaceContext + NativeSurfaceContext {
-    fn hash(&self) -> u64;
+    fn hash(&self) -> SurfaceHash;
 }
 
 pub trait SurfaceSource {
@@ -90,7 +93,7 @@ pub trait SurfaceSource {
 /// so the surface (which holds a raw pointer into `owner`'s native resources) is released
 /// before the native resources themselves. **Do not reorder these fields.**
 pub struct GpuContext {
-    surfaces: HashMap<u64, Box<dyn SurfaceContext>>, // drops 2nd — frees native resources (NSView / CAMetalLayer)
+    surfaces: HashMap<SurfaceHash, Box<dyn SurfaceContext>>, // drops 2nd — frees native resources (NSView / CAMetalLayer)
     queue: Queue,
     device: Device,
     adapter: Adapter,
@@ -106,7 +109,10 @@ impl GpuContext {
     #[must_use]
     pub async fn init() -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY, // Metal on macOS, DX12 on Windows, Vulkan on Linux
+            #[cfg(windows)]
+            backends: wgpu::Backends::DX12,
+            #[cfg(not(windows))]
+            backends: wgpu::Backends::PRIMARY,
             flags: wgpu::InstanceFlags::default(),
             memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
             backend_options: wgpu::BackendOptions::default(),
@@ -138,7 +144,7 @@ impl GpuContext {
         height: u32,
         x: u32,
         y: u32,
-    ) -> u64 {
+    ) -> SurfaceHash {
         let child_window = surface_source.create_child_surface(&self.instance, width, height, x, y);
         child_window.set_render_resolution(&self.device, &self.adapter, width, height);
         let hash = child_window.hash();
@@ -146,18 +152,22 @@ impl GpuContext {
         hash
     }
 
-    pub fn move_surface(&mut self, hash: u64, width: u32, height: u32, x: u32, y: u32) {
+    pub fn move_surface(&mut self, hash: SurfaceHash, width: u32, height: u32, x: u32, y: u32) {
         if let Some(window) = self.surfaces.get_mut(&hash) {
-            window
-                .as_mut()
-                .move_window_size_and_position(width, height, x, y);
-            window
-                .as_mut()
-                .set_render_resolution(&self.device, &self.adapter, width, height);
+            if width != 0 && height != 0 {
+                window
+                    .as_mut()
+                    .move_window_size_and_position(width, height, x, y);
+                window
+                    .as_mut()
+                    .set_render_resolution(&self.device, &self.adapter, width, height);
+            } else {
+                window.hide_window();
+            }
         }
     }
 
-    pub fn remove_surface(&mut self, hash: u64) {
+    pub fn remove_surface(&mut self, hash: SurfaceHash) {
         println!("destroied surface {hash}");
         let _ = self.surfaces.remove(&hash);
     }
@@ -178,7 +188,7 @@ impl GpuContext {
         &self.instance
     }
 
-    pub fn surfaces(&self) -> &HashMap<u64, Box<dyn SurfaceContext>> {
+    pub fn surfaces(&self) -> &HashMap<SurfaceHash, Box<dyn SurfaceContext>> {
         &self.surfaces
     }
 }

@@ -2,7 +2,6 @@ pub mod surface_context;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
-use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
 pub use macos::{MacOSContext, pop_cursor, push_cursor};

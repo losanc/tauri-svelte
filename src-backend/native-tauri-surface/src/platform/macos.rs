@@ -5,8 +5,8 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSView;
 use objc2_quartz_core::CAMetalLayer;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use wgpu::Instance;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use wgpu::Instance;
 
 /// macOS GPU surface backed by an `NSView` subview with a `CAMetalLayer`.
 ///

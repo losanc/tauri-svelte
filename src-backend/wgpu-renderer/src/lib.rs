@@ -1,4 +1,4 @@
-use native_tauri_surface::{GpuContext, SurfaceSource};
+use native_tauri_surface::{GpuContext, SurfaceHash, SurfaceSource};
 use std::{borrow::Cow, collections::HashMap};
 use wgpu::RenderPipeline;
 
@@ -17,7 +17,7 @@ fn fs_main() -> @location(0) vec4<f32> {
 "#;
 
 pub struct Renderer {
-    pipeline: HashMap<u64, RenderPipeline>,
+    pipeline: HashMap<SurfaceHash, RenderPipeline>,
     ctx: GpuContext,
 }
 
@@ -39,7 +39,7 @@ impl Renderer {
         height: u32,
         x: u32,
         y: u32,
-    ) -> u64 {
+    ) -> SurfaceHash {
         let hash = self.ctx.add_surface(source, width, height, x, y).await;
 
         let shader = self
@@ -86,12 +86,12 @@ impl Renderer {
         hash
     }
 
-    pub async fn remove_surface(&mut self, hash: u64) {
+    pub async fn remove_surface(&mut self, hash: SurfaceHash) {
         self.ctx.remove_surface(hash);
         self.pipeline.remove(&hash);
     }
 
-    pub fn hide_surface(&self, hash: u64) {
+    pub fn hide_surface(&self, hash: SurfaceHash) {
         if let Some(surface) = self.ctx.surfaces().get(&hash) {
             surface.hide_window();
         } else {
@@ -100,7 +100,7 @@ impl Renderer {
         }
     }
 
-    pub fn show_surface(&self, hash: u64) {
+    pub fn show_surface(&self, hash: SurfaceHash) {
         if let Some(surface) = self.ctx.surfaces().get(&hash) {
             surface.show_window();
         } else {
@@ -110,10 +110,10 @@ impl Renderer {
         }
     }
 
-    pub fn destroy_surface(&mut self, hash: u64) {
+    pub fn destroy_surface(&mut self, hash: SurfaceHash) {
         self.ctx.remove_surface(hash);
     }
-    pub fn set_render_resolution(&self, hash: u64, width: u32, height: u32) {
+    pub fn set_render_resolution(&self, hash: SurfaceHash, width: u32, height: u32) {
         if let Some(surface) = self.ctx.surfaces().get(&hash) {
             surface.set_render_resolution(self.ctx.device(), self.ctx.adapter(), width, height);
         } else {
@@ -121,11 +121,18 @@ impl Renderer {
         }
     }
 
-    pub fn set_surface_position(&mut self, hash: u64, width: u32, height: u32, x: u32, y: u32) {
+    pub fn set_surface_position(
+        &mut self,
+        hash: SurfaceHash,
+        width: u32,
+        height: u32,
+        x: u32,
+        y: u32,
+    ) {
         self.ctx.move_surface(hash, width, height, x, y);
         self.render_surface(hash);
     }
-    pub fn render_surface(&self, hash: u64) {
+    pub fn render_surface(&self, hash: SurfaceHash) {
         if let Some(surface) = self.ctx.surfaces().get(&hash)
             && let Some(pipeline) = self.pipeline.get(&hash)
         {

@@ -1,14 +1,13 @@
 use crate::platform::surface_context::CursorContext;
-use crate::{NativeSurfaceContext, SurfaceContext, WgpuSurfaceContext};
+use crate::{NativeSurfaceContext, SurfaceContext, SurfaceHash, WgpuSurfaceContext};
 use raw_window_handle::{RawWindowHandle, Win32WindowHandle, WindowsDisplayHandle};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroIsize;
 use wgpu::Instance;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    BringWindowToTop, CreateWindowExW, DestroyWindow, HWND_TOP, HWND_TOPMOST, SW_HIDE, SW_NORMAL,
-    SW_SHOW, SWP_NOACTIVATE, SWP_NOZORDER, SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD,
-    WS_VISIBLE,
+    BringWindowToTop, CreateWindowExW, DestroyWindow, HWND_TOPMOST, SW_HIDE, SW_NORMAL, SW_SHOW,
+    SWP_NOZORDER, SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
 };
 
 /// Windows GPU surface backed by a Win32 child `HWND`.
@@ -24,7 +23,7 @@ pub struct WindowsContext {
     height: u32,
     x: u32,
     y: u32,
-    wgpu_surface: wgpu::Surface<'static>,
+    wgpu_surface: Option<wgpu::Surface<'static>>,
 }
 
 unsafe impl Send for WindowsContext {}
@@ -32,7 +31,12 @@ unsafe impl Sync for WindowsContext {}
 
 impl Drop for WindowsContext {
     fn drop(&mut self) {
+        let surface = self.wgpu_surface.take();
+        std::mem::drop(surface);
         unsafe { DestroyWindow(self.hwnd).expect("how is this even possible?") };
+
+        self.hwnd = HWND(std::ptr::null_mut());
+        self.wgpu_surface = None;
     }
 }
 
@@ -99,7 +103,7 @@ impl WindowsContext {
             height,
             x,
             y,
-            wgpu_surface: surface,
+            wgpu_surface: Some(surface),
         }
     }
 }
@@ -159,18 +163,18 @@ impl NativeSurfaceContext for WindowsContext {
 
 impl WgpuSurfaceContext for WindowsContext {
     fn get_wgpu_surface(&self) -> &wgpu::Surface<'static> {
-        &self.wgpu_surface
+        self.wgpu_surface.as_ref().unwrap()
     }
 }
 
 impl SurfaceContext for WindowsContext {
-    fn hash(&self) -> u64 {
+    fn hash(&self) -> SurfaceHash {
         let ptr = self.hwnd.0 as usize;
         let mut hasher = DefaultHasher::new();
         ptr.hash(&mut hasher);
         let result = hasher.finish();
         println!("created window hahs: {result}");
-        result
+        result.into()
     }
 }
 

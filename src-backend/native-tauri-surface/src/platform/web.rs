@@ -1,5 +1,6 @@
 use crate::NativeSurfaceContext;
 use crate::SurfaceContext;
+use crate::SurfaceHash;
 use crate::SurfaceSource;
 use crate::WgpuSurfaceContext;
 use crate::platform::surface_context::CursorContext;
@@ -57,8 +58,8 @@ impl WgpuSurfaceContext for WasmContext {
     }
 }
 impl SurfaceContext for WasmContext {
-    fn hash(&self) -> u64 {
-        10
+    fn hash(&self) -> SurfaceHash {
+        10.into()
     }
 }
 

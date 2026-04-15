@@ -1,10 +1,11 @@
+use native_tauri_surface::SurfaceHash;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::{Manager, State};
 use utils_api::fs;
 use wgpu_renderer::Renderer;
 
-type SurfaceMap = Mutex<Option<HashMap<String, HashSet<u64>>>>;
+type SurfaceMap = Mutex<Option<HashMap<String, HashSet<SurfaceHash>>>>;
 type ThreadSafeRenderer = Mutex<Option<Renderer>>;
 
 fn browser_pixel_to_native_pixel(
@@ -39,7 +40,7 @@ async fn add_wgpu_sub_surface_impl(
     height: f64,
     x: f64,
     y: f64,
-) -> Result<u64, String> {
+) -> Result<SurfaceHash, String> {
     let (width, height, x, y) =
         browser_pixel_to_native_pixel(&current_window, width, height, x, y)?;
     let hash = renderer
@@ -96,7 +97,7 @@ fn display_wgpu_native_surface(renderer: tauri::State<'_, ThreadSafeRenderer>, h
     let renderer = renderer.lock().expect("should have value");
     let renderer_inner = renderer.as_ref().unwrap();
     // .as_mut().expect("wrong");
-    renderer_inner.show_surface(hash.parse::<u64>().unwrap());
+    renderer_inner.show_surface(hash.into());
 }
 
 #[tauri::command]
@@ -104,7 +105,7 @@ fn hide_wgpu_native_surface(renderer: tauri::State<'_, ThreadSafeRenderer>, hash
     let renderer = renderer.lock().expect("should have value");
     let renderer_inner = renderer.as_ref().unwrap();
     // .as_mut().expect("wrong");
-    renderer_inner.hide_surface(hash.parse::<u64>().unwrap());
+    renderer_inner.hide_surface(hash.into());
 }
 #[tauri::command]
 fn destroy_wgpu_native_surface(
@@ -115,7 +116,7 @@ fn destroy_wgpu_native_surface(
 ) {
     let mut renderer = renderer.lock().expect("should have value");
     let renderer_inner = renderer.as_mut().unwrap();
-    let hash = hash.parse::<u64>().unwrap();
+    let hash = hash.into();
     renderer_inner.destroy_surface(hash);
     let label = current_window.label().to_string();
 
@@ -146,7 +147,7 @@ fn move_wgpu_native_surface(
     let renderer_inner = renderer.as_mut().unwrap();
     let (width, height, x, y) =
         browser_pixel_to_native_pixel(&current_window, width, height, x, y)?;
-    renderer_inner.set_surface_position(hash.parse::<u64>().unwrap(), width, height, x, y);
+    renderer_inner.set_surface_position(hash.into(), width, height, x, y);
     Ok(())
 }
 
