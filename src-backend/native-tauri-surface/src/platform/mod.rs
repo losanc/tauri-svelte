@@ -20,11 +20,10 @@ use crate::{SurfaceContext, SurfaceSource};
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-
 impl<T: raw_window_handle::HasWindowHandle> SurfaceSource for T {
     fn create_child_surface(
         self,
-        instace: &Instance,
+        instance: &Instance,
         width: u32,
         height: u32,
         x: u32,
@@ -33,12 +32,12 @@ impl<T: raw_window_handle::HasWindowHandle> SurfaceSource for T {
         let raw_handle = self.window_handle().unwrap();
         match raw_handle.as_raw() {
             #[cfg(target_os = "macos")]
-            raw_window_handle::RawWindowHandle::AppKit(app_kit_window_handle) => {
-                Box::new(MacOSContext::new(&self, width, height, x, y))
+            raw_window_handle::RawWindowHandle::AppKit(_app_kit_window_handle) => {
+                Box::new(MacOSContext::new(instance, &self, width, height, x, y))
             }
             #[cfg(target_os = "windows")]
             raw_window_handle::RawWindowHandle::Win32(win32_window_handle) => Box::new(
-                WindowsContext::new(instace, win32_window_handle.hwnd, width, height, x, y),
+                WindowsContext::new(instance, win32_window_handle.hwnd, width, height, x, y),
             ),
             _ => {
                 panic!("unsupported platform");

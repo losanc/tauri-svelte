@@ -64,7 +64,7 @@ class WasmSurface implements GpuSurface {
   }
 }
 
-function tabBarHeight(el: HTMLElement): number {
+export function tabBarHeight(el: HTMLElement): number {
   let cursor: HTMLElement | null = el.parentElement;
   while (cursor) {
     const prev = cursor.previousElementSibling as HTMLElement | null;

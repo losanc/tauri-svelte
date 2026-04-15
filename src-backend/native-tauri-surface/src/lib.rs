@@ -106,7 +106,7 @@ impl GpuContext {
     #[must_use]
     pub async fn init() -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::DX12,
+            backends: wgpu::Backends::PRIMARY, // Metal on macOS, DX12 on Windows, Vulkan on Linux
             flags: wgpu::InstanceFlags::default(),
             memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
             backend_options: wgpu::BackendOptions::default(),
