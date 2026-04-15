@@ -14,13 +14,21 @@ fn browser_pixel_to_native_pixel(
     x: f64,
     y: f64,
 ) -> Result<(u32, u32, u32, u32), String> {
-    let scale = current_window.scale_factor().map_err(|e| e.to_string())?;
-    Ok((
-        (width * scale) as u32,
-        (height * scale) as u32,
-        (x * scale) as u32,
-        (y * scale) as u32,
-    ))
+    #[cfg(target_os = "macos")]
+    {
+        let _ = current_window;
+        return Ok((width as u32, height as u32, x as u32, y as u32));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let scale = current_window.scale_factor().map_err(|e| e.to_string())?;
+        return Ok((
+            (width * scale) as u32,
+            (height * scale) as u32,
+            (x * scale) as u32,
+            (y * scale) as u32,
+        ));
+    }
 }
 
 /// use browser resolution. width height can be float. e.g. windows set to 200% zoom. it can have .5 resolution from html
@@ -218,8 +226,8 @@ fn move_wgpu_native_surface(
 #[tauri::command]
 fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), String> {
     app.run_on_main_thread(move || {
-        #[cfg(target_os = "macos")]
-        native_tauri_surface::push_cursor(if horizontal { "ew-resize" } else { "ns-resize" });
+        // #[cfg(target_os = "macos")]
+        // native_tauri_surface::push_cursor(if horizontal { "ew-resize" } else { "ns-resize" });
     })
     .map_err(|e| format!("{e:?}"))
 }
@@ -228,8 +236,8 @@ fn push_resize_cursor(app: tauri::AppHandle, horizontal: bool) -> Result<(), Str
 #[tauri::command]
 fn pop_resize_cursor(app: tauri::AppHandle) -> Result<(), String> {
     app.run_on_main_thread(move || {
-        #[cfg(target_os = "macos")]
-        native_tauri_surface::pop_cursor();
+        // #[cfg(target_os = "macos")]
+        // native_tauri_surface::pop_cursor();
     })
     .map_err(|e| format!("{e:?}"))
 }
