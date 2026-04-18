@@ -1,5 +1,5 @@
 use crate::platform::surface_context::CursorContext;
-use crate::{NativeSurfaceContext, SurfaceContext, WgpuSurfaceContext};
+use crate::{NativeSurfaceContext, SurfaceContext, SurfaceHash, WgpuSurfaceContext};
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSView;
@@ -18,13 +18,21 @@ use wgpu::Instance;
 #[cfg(target_os = "macos")]
 pub struct MacOSContext {
     wgpu_surface: wgpu::Surface<'static>,
-    view: Retained<NSView>,
     #[allow(dead_code)]
     layer: Retained<CAMetalLayer>,
+    view: Retained<NSView>,
 }
 
 unsafe impl Send for MacOSContext {}
 unsafe impl Sync for MacOSContext {}
+
+impl Drop for MacOSContext
+{
+    fn drop(&mut self) {
+        self.layer.removeFromSuperlayer();
+        self.view.removeFromSuperview();
+    }
+}
 
 impl MacOSContext {
     /// Create a Metal-backed `NSView` subview inside the given Tauri window.
@@ -145,13 +153,13 @@ impl NativeSurfaceContext for MacOSContext {
 }
 
 impl SurfaceContext for MacOSContext {
-    fn hash(&self) -> u64 {
+    fn hash(&self) -> SurfaceHash {
         let ptr = Retained::as_ptr(&self.view) as usize;
         let mut hasher = DefaultHasher::new();
         ptr.hash(&mut hasher);
         let result = hasher.finish();
         println!("created window hahs: {result}");
-        result
+        result.into()
     }
 }
 
