@@ -3,6 +3,7 @@ use crate::{NativeSurfaceContext, SurfaceContext, SurfaceHash, WgpuSurfaceContex
 use raw_window_handle::{RawWindowHandle, Win32WindowHandle, WindowsDisplayHandle};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroIsize;
+use std::ops::Deref;
 use wgpu::Instance;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -18,27 +19,39 @@ use windows::Win32::UI::WindowsAndMessaging::{
 /// `Send + Sync` are asserted manually because `HWND` is a raw pointer wrapper.
 /// All Win32 UI calls must happen on the main thread.
 pub struct WindowsContext {
-    hwnd: HWND,
     width: u32,
     height: u32,
     x: u32,
     y: u32,
-    wgpu_surface: Option<wgpu::Surface<'static>>,
+    wgpu_surface: wgpu::Surface<'static>,
+    hwnd: HWND_Wrapper,
+}
+#[allow(non_camel_case_types)]
+struct HWND_Wrapper(HWND);
+
+impl Drop for HWND_Wrapper {
+    fn drop(&mut self) {
+        unsafe { DestroyWindow(self.0).expect("how is this even possible?") }
+        self.0 = HWND(std::ptr::null_mut());
+    }
+}
+
+impl From<HWND> for HWND_Wrapper {
+    fn from(value: HWND) -> Self {
+        Self(value)
+    }
+}
+
+impl Deref for HWND_Wrapper {
+    type Target = HWND;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 unsafe impl Send for WindowsContext {}
 unsafe impl Sync for WindowsContext {}
-
-impl Drop for WindowsContext {
-    fn drop(&mut self) {
-        let surface = self.wgpu_surface.take();
-        std::mem::drop(surface);
-        unsafe { DestroyWindow(self.hwnd).expect("how is this even possible?") };
-
-        self.hwnd = HWND(std::ptr::null_mut());
-        self.wgpu_surface = None;
-    }
-}
 
 impl WindowsContext {
     /// Create a borderless child `HWND` inside the given Tauri window.
@@ -98,12 +111,12 @@ impl WindowsContext {
         let surface: wgpu::Surface<'static> = unsafe { std::mem::transmute(surface) };
 
         Self {
-            hwnd: child_hwnd,
             width,
             height,
             x,
             y,
-            wgpu_surface: Some(surface),
+            wgpu_surface: surface,
+            hwnd: child_hwnd.into(),
         }
     }
 }
@@ -115,13 +128,13 @@ impl NativeSurfaceContext for WindowsContext {
     /// Must be called on the main thread.
     fn hide_window(&self) {
         unsafe {
-            let _ = ShowWindow(self.hwnd, SW_HIDE);
+            let _ = ShowWindow(self.hwnd.0, SW_HIDE);
         }
     }
 
     fn show_window(&self) {
         unsafe {
-            let _ = ShowWindow(self.hwnd, SW_NORMAL);
+            let _ = ShowWindow(self.hwnd.0, SW_NORMAL);
         }
     }
 
@@ -143,7 +156,7 @@ impl NativeSurfaceContext for WindowsContext {
             );
             unsafe {
                 let _ = SetWindowPos(
-                    self.hwnd,
+                    self.hwnd.0,
                     Some(HWND_TOPMOST),
                     x as i32,
                     y as i32,
@@ -151,7 +164,7 @@ impl NativeSurfaceContext for WindowsContext {
                     height as i32,
                     SWP_NOZORDER,
                 );
-                let _ = ShowWindow(self.hwnd, SW_SHOW);
+                let _ = ShowWindow(self.hwnd.0, SW_SHOW);
             }
             self.x = x;
             self.y = y;
@@ -163,13 +176,13 @@ impl NativeSurfaceContext for WindowsContext {
 
 impl WgpuSurfaceContext for WindowsContext {
     fn get_wgpu_surface(&self) -> &wgpu::Surface<'static> {
-        self.wgpu_surface.as_ref().unwrap()
+        &self.wgpu_surface
     }
 }
 
 impl SurfaceContext for WindowsContext {
     fn hash(&self) -> SurfaceHash {
-        let ptr = self.hwnd.0 as usize;
+        let ptr = self.hwnd.0.0 as usize;
         let mut hasher = DefaultHasher::new();
         ptr.hash(&mut hasher);
         let result = hasher.finish();
