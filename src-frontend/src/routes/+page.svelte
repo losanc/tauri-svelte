@@ -83,10 +83,17 @@
         viewPanel.hide();
       }
     });
-    panel.api.onDidDimensionsChange((_e) => {
-      const rect = getSurfaceRect(panelViewElement);
-      viewPanel.move_surface(rect.width, rect.height, rect.x, rect.y);
-    });
+
+    const updateRect = () => {
+      // Update with a frame delay to ensure the DOM has updated with the new panel size/position.
+      requestAnimationFrame(() => {
+        const rect = getSurfaceRect(panelViewElement);
+        viewPanel.move_surface(rect.width, rect.height, rect.x, rect.y);
+      });
+    };
+    
+    panel.api.onDidDimensionsChange(updateRect);
+    panel.api.onDidLocationChange(updateRect);
   }
 
 </script>

@@ -110,6 +110,12 @@ impl WgpuSurfaceContext for MacOSContext {
     }
 }
 
+impl Drop for MacOSContext {
+    fn drop(&mut self) {
+        unsafe { self.view.removeFromSuperview() };
+    }
+}
+
 impl NativeSurfaceContext for MacOSContext {
     /// Hide the Metal NSView.
     fn hide_window(&self) {
