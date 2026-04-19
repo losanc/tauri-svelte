@@ -7,7 +7,7 @@ use wgpu::Instance;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, CreateWindowExW, DestroyWindow, HWND_TOPMOST, SW_HIDE, SW_NORMAL, SW_SHOW,
-    SWP_NOZORDER, SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
+    SWP_NOZORDER, SetWindowPos, ShowWindow, WINDOW_STYLE, WS_CHILD, WS_DISABLED, WS_VISIBLE,
 };
 
 /// Windows GPU surface backed by a Win32 child `HWND`.
@@ -64,10 +64,10 @@ impl WindowsContext {
         // a child surface that only serves as a wgpu render target.
         let child_hwnd = unsafe {
             CreateWindowExW(
-                Default::default(),                      // dwExStyle
+                Default::default(),                                      // dwExStyle
                 windows::core::w!("STATIC"), // lpClassName — built-in, always registered
                 Option::None,                // lpWindowName
-                WINDOW_STYLE(WS_CHILD.0 | WS_VISIBLE.0), // dwStyle
+                WINDOW_STYLE(WS_CHILD.0 | WS_VISIBLE.0 | WS_DISABLED.0), // dwStyle
                 x as i32,                    // X
                 y as i32,                    // Y
                 width as i32,                // nWidth

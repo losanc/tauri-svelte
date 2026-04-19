@@ -26,14 +26,6 @@ pub struct MacOSContext {
 unsafe impl Send for MacOSContext {}
 unsafe impl Sync for MacOSContext {}
 
-impl Drop for MacOSContext
-{
-    fn drop(&mut self) {
-        self.layer.removeFromSuperlayer();
-        self.view.removeFromSuperview();
-    }
-}
-
 impl MacOSContext {
     /// Create a Metal-backed `NSView` subview inside the given Tauri window.
     ///
@@ -112,7 +104,8 @@ impl WgpuSurfaceContext for MacOSContext {
 
 impl Drop for MacOSContext {
     fn drop(&mut self) {
-        unsafe { self.view.removeFromSuperview() };
+        self.layer.removeFromSuperlayer();
+        self.view.removeFromSuperview();
     }
 }
 
