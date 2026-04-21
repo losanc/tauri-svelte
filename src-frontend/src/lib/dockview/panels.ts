@@ -64,19 +64,6 @@ class WasmSurface implements GpuSurface {
   }
 }
 
-export function tabBarHeight(el: HTMLElement): number {
-  let cursor: HTMLElement | null = el.parentElement;
-  while (cursor) {
-    const prev = cursor.previousElementSibling as HTMLElement | null;
-    if (prev) {
-      const r = prev.getBoundingClientRect();
-      if (r.height > 0) return r.height;
-    }
-    cursor = cursor.parentElement;
-  }
-  return 0;
-}
-
 function addNativeWgpuPanel() {}
 export class NativeWgpuPanel {
   readonly element: HTMLElement;
@@ -151,7 +138,7 @@ export class WgpuPanel {
     let lastRect = { x: 0, y: 0, w: 0, h: 0 };
     const loop = () => {
       const r = this.element.getBoundingClientRect();
-      const top = r.y + tabBarHeight(this.element);
+      const top = r.y;
       if (
         r.x !== lastRect.x ||
         top !== lastRect.y ||

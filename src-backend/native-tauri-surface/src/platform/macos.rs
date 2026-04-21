@@ -60,7 +60,11 @@ impl MacOSContext {
         let window = view.window().expect("failed to get window");
         let content_view = window.contentView().expect("no content view");
         // Convert CSS y coordinate to AppKit y coordinate using the content view height, so the initial position is correct.
-        let content_height = content_view.frame().size.height;
+        // contentLayoutRect gives the portion of the contentView not obscured by the
+        // title bar (Tauri uses fullSizeContentView, so the WKWebView extends under the
+        // title bar). This matches window.innerHeight in JS — the correct origin for
+        // converting CSS y coordinates to AppKit y coordinates.
+        let content_height = window.contentLayoutRect().size.height;
         let mac_y = css_y_to_appkit(y as f64, height as f64, content_height);
 
         let metal_rect = NSRect::new(
@@ -140,7 +144,7 @@ impl NativeSurfaceContext for MacOSContext {
         let window_height = self
             .view
             .window()
-            .and_then(|w| Some(w.frame().size.height))
+            .map(|w| w.contentLayoutRect().size.height)
             .unwrap_or(0.0);
         let mac_y = css_y_to_appkit(y as f64, height as f64, window_height);
         self.view.setFrame(NSRect::new(

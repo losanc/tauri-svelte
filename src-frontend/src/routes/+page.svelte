@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { initDockview, WgpuPanel, SimplePanel, NativeWgpuPanel, tabBarHeight } from '$lib/dockview';
+  import { initDockview, WgpuPanel, SimplePanel, NativeWgpuPanel } from '$lib/dockview';
   import type { DockviewHandle } from '$lib/dockview';
   import { initialPanels, PANEL_COLORS } from '$lib/config/panels';
   import { useFileDrop } from '$lib/hooks/useFileDrop.svelte';
@@ -69,8 +69,7 @@
 
     function getSurfaceRect(el: HTMLElement) {
       const rect = el.getBoundingClientRect();
-      const tabH = tabBarHeight(el);
-      return { x: rect.x, y: rect.y + tabH, width: rect.width, height: rect.height };
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
     }
 
     const init = getSurfaceRect(panelViewElement);
